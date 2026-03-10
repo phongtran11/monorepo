@@ -1,0 +1,20 @@
+{
+  "name": "@lam-thinh-ecommerce/shared",
+  "version": "1.0.0",
+  "description": "Shared types, constants, helpers for the monorepo",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./constants": "./src/constants/index.ts",
+    "./helpers": "./src/helpers/index.ts",
+    "./types": "./src/types/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4"
+}

@@ -1,0 +1,30 @@
+{
+  "name": "lam-thinh-ecommerce",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
+    "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
+    "build": "pnpm -r run build",
+    "build:web": "pnpm --filter @lam-thinh-ecommerce/web build",
+    "build:api": "pnpm --filter @lam-thinh-ecommerce/api build",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4",
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.20.0"
+  }
+}
