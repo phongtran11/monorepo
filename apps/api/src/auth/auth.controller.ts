@@ -1,3 +1,4 @@
+import { RolePermissionsMap } from '@lam-thinh-ecommerce/shared/constants';
 import {
   Body,
   Controller,
@@ -17,7 +18,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guard/jwt-auth.guard';
 import { JwtRefreshAuthGuard } from './guard/jwt-refresh-auth.guard';
-import { AuthUser, RefreshAuthUser } from './jwt.type';
+import type { AuthRequest, RefreshAuthRequest } from './jwt.type';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -46,8 +47,11 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  getProfile(@Request() req: { user: AuthUser }) {
-    return req.user;
+  getProfile(@Request() req: AuthRequest) {
+    return {
+      ...req.user,
+      permissions: RolePermissionsMap[req.user.role] || [],
+    };
   }
 
   @Post('refresh')
@@ -55,10 +59,7 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   refresh(
-    @Request()
-    req: {
-      user: RefreshAuthUser;
-    },
+    @Request() req: RefreshAuthRequest,
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
   ) {
@@ -76,12 +77,7 @@ export class AuthController {
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  logout(
-    @Request()
-    req: {
-      user: RefreshAuthUser;
-    },
-  ) {
+  logout(@Request() req: RefreshAuthRequest) {
     return this.authService.logout(req.user.id, req.user.jti);
   }
 }

@@ -1,3 +1,4 @@
+import { AccountStatus, Role } from '@lam-thinh-ecommerce/shared/constants';
 import {
   Column,
   CreateDateColumn,
@@ -16,6 +17,22 @@ export class User {
 
   @Column({ type: 'varchar', length: 255 })
   password: string;
+
+  @Column({ type: 'varchar', length: 255, name: 'full_name', nullable: true })
+  fullName: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone: string;
+
+  @Column({ type: 'smallint', unsigned: true, default: Role.CUSTOMER })
+  role: Role;
+
+  @Column({
+    type: 'smallint',
+    unsigned: true,
+    default: AccountStatus.ACTIVE,
+  })
+  status: AccountStatus;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;

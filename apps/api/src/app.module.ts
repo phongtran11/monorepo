@@ -2,9 +2,18 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
-import { appConfig, databaseConfig, Env, jwtConfig, validate } from './config';
+import { DBLogger } from './common/logger/database.logger';
+import {
+  appConfig,
+  databaseConfig,
+  Env,
+  jwtConfig,
+  loggerConfig,
+  validate,
+} from './config';
 
 @Module({
   imports: [
@@ -12,8 +21,15 @@ import { appConfig, databaseConfig, Env, jwtConfig, validate } from './config';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, loggerConfig],
       validate,
+    }),
+
+    // Pino Logger
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        configService.getOrThrow('logger'),
     }),
 
     // TypeORM with Neon PostgreSQL
@@ -24,6 +40,7 @@ import { appConfig, databaseConfig, Env, jwtConfig, validate } from './config';
         url: configService.getOrThrow('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: configService.getOrThrow('NODE_ENV') !== 'production',
+        logger: new DBLogger(),
       }),
     }),
 

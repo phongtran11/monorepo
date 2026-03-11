@@ -12,7 +12,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
   Strategy,
   'jwt-refresh',
 ) {
-  constructor(private readonly configService: ConfigService<Env>) {
+  constructor(configService: ConfigService<Env>) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -23,12 +23,15 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
   validate(req: Request, payload: RefreshTokenPayload): RefreshAuthUser {
     const refreshToken = req.get('Authorization')?.replace('Bearer', '').trim();
-    if (!refreshToken)
-      throw new UnauthorizedException('Refresh token malformed');
+    if (!refreshToken) {
+      throw new UnauthorizedException('Token làm mới không đúng định dạng');
+    }
 
     return {
       id: payload.sub,
       email: payload.email,
+      role: payload.role,
+      status: payload.status,
       jti: payload.jti,
       refreshToken,
     };

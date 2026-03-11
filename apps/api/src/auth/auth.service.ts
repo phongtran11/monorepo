@@ -1,3 +1,4 @@
+import { AccountStatus } from '@lam-thinh-ecommerce/shared/constants';
 import {
   ConflictException,
   Injectable,
@@ -10,6 +11,7 @@ import { randomUUID } from 'crypto';
 import ms from 'ms';
 
 import { Env } from '../config';
+import { User } from '../user/user.entity';
 import { UserService } from '../user/user.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -28,7 +30,7 @@ export class AuthService {
     const existing = await this.userService.findByEmail(dto.email);
 
     if (existing) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('Email đã tồn tại');
     }
 
     const hashedPassword = await argon2.hash(dto.password, {
@@ -38,14 +40,18 @@ export class AuthService {
     });
     const user = await this.userService.create(dto.email, hashedPassword);
 
-    return this.generateTokens(user.id, user.email, ip, userAgent);
+    return this.generateTokens(user, ip, userAgent);
   }
 
   async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Tài khoản không tồn tại');
+    }
+
+    if (user.status === AccountStatus.BANNED) {
+      throw new UnauthorizedException('Tài khoản của bạn đã bị khoá');
     }
 
     const isPasswordValid = await argon2.verify(user.password, dto.password, {
@@ -55,19 +61,19 @@ export class AuthService {
     });
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
-    return this.generateTokens(user.id, user.email, ip, userAgent);
+    return this.generateTokens(user, ip, userAgent);
   }
 
-  private async generateTokens(
-    userId: string,
-    email: string,
-    ip?: string,
-    userAgent?: string,
-  ) {
-    const payload = { sub: userId, email };
+  private async generateTokens(user: User, ip?: string, userAgent?: string) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.getOrThrow('JWT_ACCESS_SECRET'),
@@ -95,7 +101,7 @@ export class AuthService {
 
     const session = this.sessionRepository.create({
       id: jti,
-      userId,
+      userId: user.id,
       refreshToken: hashedRefreshToken,
       ip,
       userAgent,
@@ -123,7 +129,15 @@ export class AuthService {
       if (session) {
         await this.sessionRepository.remove(session);
       }
-      throw new UnauthorizedException('Session expired or invalid');
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã hết hạn hoặc không hợp lệ',
+      );
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user || user.status === AccountStatus.BANNED) {
+      await this.sessionRepository.remove(session);
+      throw new UnauthorizedException('Tài khoản không tồn tại hoặc bị khoá');
     }
 
     const isTokenValid = await argon2.verify(session.refreshToken, rawToken, {
@@ -132,12 +146,12 @@ export class AuthService {
       ),
     });
     if (!isTokenValid) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Token không hợp lệ');
     }
 
     await this.sessionRepository.remove(session);
 
-    return this.generateTokens(userId, email, ip, userAgent);
+    return this.generateTokens(user, ip, userAgent);
   }
 
   async logout(userId: string, jti: string) {

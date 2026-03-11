@@ -6,9 +6,11 @@
     "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
+    "dev:shared": "pnpm --filter @lam-thinh-ecommerce/shared dev",
     "build": "pnpm -r run build",
     "build:web": "pnpm --filter @lam-thinh-ecommerce/web build",
     "build:api": "pnpm --filter @lam-thinh-ecommerce/api build",
+    "build:shared": "pnpm --filter @lam-thinh-ecommerce/shared build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
