@@ -1,10 +1,34 @@
-import tseslint from 'typescript-eslint';
+import eslint from '@eslint/js';
+import { defineConfig } from 'eslint/config';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
-import { baseConfig } from '../../eslint.config.mjs';
+import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
-  { ignores: ['eslint.config.mjs', 'dist/**'] },
-  ...baseConfig,
+export default defineConfig(
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
+  eslintPluginPrettierRecommended,
+  {
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
+    rules: {
+      'no-console': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
+    },
+  },
   ...tseslint.configs.recommendedTypeCheckedOnly,
   {
     languageOptions: {
@@ -13,7 +37,9 @@ export default tseslint.config(
         ...globals.jest,
       },
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['*.mjs', '*.js'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
