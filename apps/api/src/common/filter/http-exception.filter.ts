@@ -28,7 +28,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const errorMessage =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : (exceptionResponse as { message: string }).message;
+        : Array.isArray((exceptionResponse as { message: unknown }).message)
+          ? (exceptionResponse as { message: string[] }).message.join(', ')
+          : (exceptionResponse as { message: string }).message;
 
     response.status(status).json(ApiResponseDto.error(errorMessage, status));
   }

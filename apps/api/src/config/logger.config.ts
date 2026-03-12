@@ -14,7 +14,7 @@ export const loggerConfig = registerAs(
       genReqId: (): string => {
         return randomUUID();
       },
-      level: process.env.NODE_ENV === 'production' ? 'log' : 'debug',
+      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
       transport:
         process.env.NODE_ENV !== 'production'
           ? {

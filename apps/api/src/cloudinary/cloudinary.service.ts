@@ -1,5 +1,5 @@
 import { Env } from '@api/config';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   TransformationOptions,
@@ -42,29 +42,45 @@ export class CloudinaryService {
     folder?: string,
   ): Promise<UploadResponseDto> {
     return new Promise((resolve, reject) => {
+      let isResolved = false;
+
+      const handleReject = (error: Error | UploadApiErrorResponse) => {
+        if (!isResolved) {
+          isResolved = true;
+          reject(
+            new BadRequestException(
+              `Lỗi tải ảnh lên Cloudinary: ${error.message}`,
+            ),
+          );
+        }
+      };
+
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: folder || this.defaultFolder },
         (error: UploadApiErrorResponse, result: UploadApiResponse) => {
           if (error) {
-            reject(
-              new HttpException(
-                `Cloudinary upload error: ${error.message}`,
-                HttpStatus.BAD_REQUEST,
-              ),
-            );
+            handleReject(error);
           } else {
-            resolve({
-              publicId: result.public_id,
-              url: result.secure_url,
-              width: result.width,
-              height: result.height,
-              format: result.format,
-            });
+            if (!isResolved) {
+              isResolved = true;
+              resolve({
+                publicId: result.public_id,
+                url: result.secure_url,
+                width: result.width,
+                height: result.height,
+                format: result.format,
+              });
+            }
           }
         },
       );
 
-      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+      const readStream = streamifier.createReadStream(file.buffer);
+
+      readStream.on('error', (error) => handleReject(error));
+      uploadStream.on('error', (error) => handleReject(error));
+
+      readStream.pipe(uploadStream);
     });
   }
 
@@ -85,11 +101,9 @@ export class CloudinaryService {
       );
       return await Promise.all(uploadPromises);
     } catch (error) {
-      throw new HttpException(
-        'Error uploading multiple images to Cloudinary',
-        HttpStatus.BAD_REQUEST,
-        { cause: error },
-      );
+      throw new BadRequestException('Lỗi khi tải nhiều ảnh lên Cloudinary', {
+        cause: error,
+      });
     }
   }
 
@@ -106,9 +120,8 @@ export class CloudinaryService {
       };
       return result.result;
     } catch (error) {
-      throw new HttpException(
-        `Error deleting image from Cloudinary: ${(error as Error).message}`,
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        `Lỗi khi xóa ảnh trên Cloudinary: ${(error as Error).message}`,
       );
     }
   }
@@ -124,9 +137,8 @@ export class CloudinaryService {
     try {
       await cloudinary.api.delete_resources(publicIds);
     } catch (error) {
-      throw new HttpException(
-        `Error deleting multiple images from Cloudinary: ${(error as Error).message}`,
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        `Lỗi khi xóa nhiều ảnh trên Cloudinary: ${(error as Error).message}`,
       );
     }
   }

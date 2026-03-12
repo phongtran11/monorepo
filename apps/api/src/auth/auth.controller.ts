@@ -100,6 +100,7 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the new authentication tokens.
    */
   @Post('refresh')
+  @ApiOkResponse({ type: ApiResponseOf(TokenDto) })
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
@@ -125,6 +126,10 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto indicating successful logout.
    */
   @Post('logout')
+  @ApiOkResponse({
+    type: ApiResponseDto,
+    description: 'Successfully logged out',
+  })
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)

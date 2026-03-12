@@ -1,6 +1,5 @@
 import { HttpExceptionFilter } from '@api/common/filter';
 import {
-  BadRequestException,
   INestApplication,
   ValidationPipe,
   VersioningType,
@@ -27,12 +26,6 @@ export function bootstrapApp(app: INestApplication) {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      exceptionFactory: (errors) => {
-        const messages = errors.map((error) => {
-          return Object.values(error.constraints ?? {}).join(', ');
-        });
-        return new BadRequestException(messages.join('; '));
-      },
     }),
   );
 

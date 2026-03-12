@@ -8,5 +8,6 @@ export function slugify(text: string): string {
     .replace(/[đĐ]/g, 'd') // Specifically handle Vietnamese 'đ'
     .replace(/[^a-z0-9 -]/g, '') // Remove non-alphanumeric characters except spaces and hyphens
     .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-'); // Replace multiple hyphens with a single one
+    .replace(/-+/g, '-') // Replace multiple hyphens with a single one
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 }

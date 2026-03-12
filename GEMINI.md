@@ -17,7 +17,10 @@
 - **Architecture:**
   - **Module Pattern:** Organize code into modules (`auth`, `user`, etc.).
   - **Repository Pattern:** Use Custom Repository Pattern for database access. Repositories should extend `Repository<T>` or `TreeRepository<T>` and be decorated with `@Injectable()`. Inject them directly into services.
-  - **DTOs:** Use class-validator decorators for request validation.
+  - **DTOs:**
+    - Use class-validator decorators for request validation.
+    - For response DTOs, use `@Exclude()` at the class level and `@Expose()` on fields to be returned.
+    - In Controllers, use `plainToInstance(DtoClass, data)` from `class-transformer` to ensure the response object is correctly transformed and filtered before being wrapped in `ApiResponseDto.success(data)`. Avoid using `as unknown as DtoClass`.
   - **Configuration:** Use `@nestjs/config` with dedicated config files in `src/config/`.
 - **App Initialization:** All global configurations (prefix, versioning, pipes, filters) must be centralized in `src/common/factory/app.factory.ts`. This ensures consistency between `main.ts` and E2E tests.
 - **E2E Testing:**

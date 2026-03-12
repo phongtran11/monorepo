@@ -13,7 +13,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { plainToInstance } from 'class-transformer';
 
 import { CategoryService } from './category.service';
 import {
@@ -47,7 +53,7 @@ export class CategoryController {
   async findAll(): Promise<ApiResponseDto<CategoryResponseDto[]>> {
     const categories = await this.categoryService.findAllTree();
     return ApiResponseDto.success(
-      categories as unknown as CategoryResponseDto[],
+      plainToInstance(CategoryResponseDto, categories),
     );
   }
 
@@ -61,12 +67,14 @@ export class CategoryController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions(Permission.CREATE_CATEGORY)
   @ApiBearerAuth()
-  @ApiOkResponse({ type: ApiResponseOf(CategoryResponseDto) })
+  @ApiCreatedResponse({ type: ApiResponseOf(CategoryResponseDto) })
   async create(
     @Body() dto: CreateCategoryDto,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
     const category = await this.categoryService.create(dto);
-    return ApiResponseDto.success(category as unknown as CategoryResponseDto);
+    return ApiResponseDto.success(
+      plainToInstance(CategoryResponseDto, category),
+    );
   }
 
   /**
@@ -86,7 +94,9 @@ export class CategoryController {
     @Body() dto: UpdateCategoryDto,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
     const category = await this.categoryService.update(id, dto);
-    return ApiResponseDto.success(category as unknown as CategoryResponseDto);
+    return ApiResponseDto.success(
+      plainToInstance(CategoryResponseDto, category),
+    );
   }
 
   /**
@@ -100,6 +110,10 @@ export class CategoryController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions(Permission.DELETE_CATEGORY)
   @ApiBearerAuth()
+  @ApiOkResponse({
+    type: ApiResponseDto,
+    description: 'Successfully removed category',
+  })
   async remove(@Param('id') id: string): Promise<ApiResponseDto<null>> {
     await this.categoryService.remove(id);
     return ApiResponseDto.success(null);

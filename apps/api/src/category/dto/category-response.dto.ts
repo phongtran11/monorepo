@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Exclude, Expose } from 'class-transformer';
 
 /**
  * Data transfer object for category response.
  */
+@Exclude()
 export class CategoryResponseDto {
   /**
    * The unique identifier of the category.
@@ -11,6 +13,7 @@ export class CategoryResponseDto {
     example: 'uuid',
     description: 'The unique identifier of the category.',
   })
+  @Expose()
   id: string;
 
   /**
@@ -20,6 +23,7 @@ export class CategoryResponseDto {
     example: 'Dầu nhớt',
     description: 'The name of the category.',
   })
+  @Expose()
   name: string;
 
   /**
@@ -29,6 +33,7 @@ export class CategoryResponseDto {
     example: 'dau-nhot',
     description: 'The unique slug of the category.',
   })
+  @Expose()
   slug: string;
 
   /**
@@ -38,6 +43,7 @@ export class CategoryResponseDto {
     example: 'categories/oil.png',
     description: "The path to the category's logo.",
   })
+  @Expose()
   logoPath?: string;
 
   /**
@@ -47,6 +53,7 @@ export class CategoryResponseDto {
     example: 0,
     description: 'The order in which the category is displayed.',
   })
+  @Expose()
   displayOrder: number;
 
   /**
@@ -57,6 +64,7 @@ export class CategoryResponseDto {
     isArray: true,
     description: 'The children of this category.',
   })
+  @Expose()
   children?: CategoryResponseDto[];
 
   /**
@@ -65,6 +73,7 @@ export class CategoryResponseDto {
   @ApiProperty({
     description: 'The date and time when the category was created.',
   })
+  @Expose()
   createdAt: Date;
 
   /**
@@ -73,5 +82,6 @@ export class CategoryResponseDto {
   @ApiProperty({
     description: 'The date and time when the category was last updated.',
   })
+  @Expose()
   updatedAt: Date;
 }

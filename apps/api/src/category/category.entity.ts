@@ -51,7 +51,7 @@ export class Category {
    * The parent category of this category.
    */
   @TreeParent()
-  parent: Category;
+  parent: Category | null;
 
   /**
    * The child categories of this category.

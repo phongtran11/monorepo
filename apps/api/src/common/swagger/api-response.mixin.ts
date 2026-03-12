@@ -10,9 +10,15 @@ import { ApiProperty, ApiPropertyOptions } from '@nestjs/swagger';
  */
 export function ApiResponseOf(
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  dataType: Function | [Function],
+  dataType: Function | Function[],
   options?: ApiPropertyOptions,
 ) {
+  if (Array.isArray(dataType) && dataType.length === 0) {
+    throw new Error(
+      'dataType provided to ApiResponseOf must not be an empty array. Please provide a class or an array containing a class.',
+    );
+  }
+
   class ApiResponseClass extends ApiResponseDto<any> {
     @ApiProperty(
       Array.isArray(dataType)
