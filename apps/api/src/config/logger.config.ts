@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { registerAs } from '@nestjs/config';
 import { Params } from 'nestjs-pino';
 
+/**
+ * Logger configuration object.
+ * Configures nestjs-pino with custom settings for request tracking and pretty-printing.
+ */
 export const loggerConfig = registerAs(
   'logger',
   (): Params => ({
@@ -10,7 +14,7 @@ export const loggerConfig = registerAs(
       genReqId: (): string => {
         return randomUUID();
       },
-      level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
+      level: process.env.NODE_ENV === 'production' ? 'log' : 'debug',
       transport:
         process.env.NODE_ENV !== 'production'
           ? {
@@ -25,5 +29,6 @@ export const loggerConfig = registerAs(
       // Auto logging configuration
       autoLogging: true,
     },
+    forRoutes: ['*path'],
   }),
 );

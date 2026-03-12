@@ -9,6 +9,12 @@ export const Permission = {
   READ_ORDERS: 'read:orders',
   UPDATE_ORDER: 'update:order',
 
+  // Categories
+  CREATE_CATEGORY: 'create:category',
+  READ_CATEGORIES: 'read:categories',
+  UPDATE_CATEGORY: 'update:category',
+  DELETE_CATEGORY: 'delete:category',
+
   // System
   MANAGE_SYSTEM: 'manage:system',
 } as const;

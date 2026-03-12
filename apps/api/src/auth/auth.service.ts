@@ -1,4 +1,7 @@
-import { AccountStatus } from '@lam-thinh-ecommerce/shared/constants';
+import { Env } from '@api/config';
+import { User } from '@api/user/user.entity';
+import { UserService } from '@api/user/user.service';
+import { AccountStatus } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
   Injectable,
@@ -10,13 +13,14 @@ import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import ms from 'ms';
 
-import { Env } from '../config';
-import { User } from '../user/user.entity';
-import { UserService } from '../user/user.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SessionRepository } from './session.repository';
 
+/**
+ * Service providing authentication and authorization functionality.
+ * Handles user registration, login, token generation, token refresh, and logout.
+ */
 @Injectable()
 export class AuthService {
   constructor(
@@ -26,6 +30,15 @@ export class AuthService {
     private readonly sessionRepository: SessionRepository,
   ) {}
 
+  /**
+   * Registers a new user and generates authentication tokens.
+   *
+   * @param dto - The registration data.
+   * @param ip - (Optional) The IP address of the user.
+   * @param userAgent - (Optional) The user agent string of the user.
+   * @returns A promise that resolves to the generated authentication tokens.
+   * @throws ConflictException if the email already exists.
+   */
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
     const existing = await this.userService.findByEmail(dto.email);
 
@@ -43,6 +56,15 @@ export class AuthService {
     return this.generateTokens(user, ip, userAgent);
   }
 
+  /**
+   * Authenticates a user and generates authentication tokens.
+   *
+   * @param dto - The login credentials.
+   * @param ip - (Optional) The IP address of the user.
+   * @param userAgent - (Optional) The user agent string of the user.
+   * @returns A promise that resolves to the generated authentication tokens.
+   * @throws UnauthorizedException if the user doesn't exist, is banned, or has incorrect credentials.
+   */
   async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const user = await this.userService.findByEmail(dto.email);
 
@@ -67,6 +89,14 @@ export class AuthService {
     return this.generateTokens(user, ip, userAgent);
   }
 
+  /**
+   * Generates new access and refresh tokens for a user and saves the session.
+   *
+   * @param user - The user for whom to generate tokens.
+   * @param ip - (Optional) The user's IP address.
+   * @param userAgent - (Optional) The user's user agent string.
+   * @returns A promise that resolves to the access and refresh tokens.
+   */
   private async generateTokens(user: User, ip?: string, userAgent?: string) {
     const payload = {
       sub: user.id,
@@ -113,9 +143,19 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /**
+   * Refreshes the authentication tokens using a valid refresh token.
+   *
+   * @param userId - The ID of the user.
+   * @param jti - The unique ID of the refresh token session.
+   * @param rawToken - The raw refresh token string.
+   * @param ip - (Optional) The new IP address.
+   * @param userAgent - (Optional) The new user agent string.
+   * @returns A promise that resolves to the new authentication tokens.
+   * @throws UnauthorizedException if the session is invalid, expired, or the user is banned.
+   */
   async refreshToken(
     userId: string,
-    email: string,
     jti: string,
     rawToken: string,
     ip?: string,
@@ -154,6 +194,13 @@ export class AuthService {
     return this.generateTokens(user, ip, userAgent);
   }
 
+  /**
+   * Logs out the user by removing their current session.
+   *
+   * @param userId - The ID of the user.
+   * @param jti - The unique ID of the session to remove.
+   * @returns A promise that resolves when the session is removed.
+   */
   async logout(userId: string, jti: string) {
     const session = await this.sessionRepository.findOne({
       where: { id: jti, userId },

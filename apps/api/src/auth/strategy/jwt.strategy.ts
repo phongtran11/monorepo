@@ -1,11 +1,14 @@
+import { AuthUser, JwtPayload } from '@api/auth/jwt.type';
+import { Env } from '@api/config';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { Env } from 'src/config';
 
-import { AuthUser, JwtPayload } from '../jwt.type';
-
+/**
+ * Strategy for validating JWT access tokens.
+ * Extracts the token from the Authorization header and validates its payload.
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(jwt: ConfigService<Env>) {
@@ -16,6 +19,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /**
+   * Validates the JWT payload and returns the authenticated user information.
+   *
+   * @param payload - The decoded JWT payload.
+   * @returns The authenticated user object.
+   */
   validate(payload: JwtPayload): AuthUser {
     return {
       id: payload.sub,

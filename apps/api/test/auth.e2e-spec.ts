@@ -1,13 +1,12 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { AppModule } from '@api/app.module';
+import { SessionRepository } from '@api/auth/session.repository';
+import { ApiResponseDto, bootstrapApp } from '@api/common';
+import { User } from '@api/user/user.entity';
+import { UserRepository } from '@api/user/user.repository';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserRepository } from 'src/user/user.repository';
 import request from 'supertest';
 import { Repository } from 'typeorm';
-
-import { AppModule } from './../src/app.module';
-import { SessionRepository } from './../src/auth/session.repository';
-import { User } from './../src/user/user.entity';
 
 describe('AuthController (e2e)', () => {
   let app: NestExpressApplication;
@@ -29,17 +28,7 @@ describe('AuthController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
-    app.setGlobalPrefix('api');
-    app.enableVersioning({
-      type: VersioningType.URI,
-      defaultVersion: '1',
-    });
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-      }),
-    );
+    bootstrapApp(app);
 
     await app.init();
 
@@ -74,22 +63,34 @@ describe('AuthController (e2e)', () => {
       .send(testUser)
       .expect(201);
 
-    expect(response.body).toHaveProperty('accessToken');
-    expect(response.body).toHaveProperty('refreshToken');
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('accessToken');
+    expect(body.data).toHaveProperty('refreshToken');
 
-    const responseBody = response.body as {
+    const responseBody = body.data as {
       accessToken: string;
       refreshToken: string;
     };
     accessToken = responseBody.accessToken;
     refreshToken = responseBody.refreshToken;
+
+    // Assert database
+    const user = await userRepository.findOne({
+      where: { email: testUser.email },
+    });
+    expect(user).toBeDefined();
+    expect(user?.email).toBe(testUser.email);
   });
 
   it('/auth/register (POST) - duplicate email', async () => {
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send(testUser)
       .expect(409);
+
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(false);
   });
 
   it('/auth/login (POST)', async () => {
@@ -98,22 +99,39 @@ describe('AuthController (e2e)', () => {
       .send(testUser)
       .expect(200);
 
-    expect(response.body).toHaveProperty('accessToken');
-    expect(response.body).toHaveProperty('refreshToken');
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('accessToken');
+    expect(body.data).toHaveProperty('refreshToken');
 
-    const responseBody = response.body as {
+    const responseBody = body.data as {
       accessToken: string;
       refreshToken: string;
     };
     accessToken = responseBody.accessToken;
     refreshToken = responseBody.refreshToken;
+
+    // Decode token to get jti
+    const decodedToken = JSON.parse(
+      Buffer.from(refreshToken.split('.')[1], 'base64').toString(),
+    ) as { jti: string };
+    const jti = decodedToken.jti;
+
+    // Assert database (session created)
+    const session = await sessionRepository.findOne({
+      where: { id: jti },
+    });
+    expect(session).toBeDefined();
   });
 
   it('/auth/login (POST) - wrong password', async () => {
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ ...testUser, password: 'wrongpassword' })
       .expect(401);
+
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(false);
   });
 
   it('/auth/profile (GET) - Success', async () => {
@@ -122,12 +140,20 @@ describe('AuthController (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('id');
-    expect(response.body.email).toBe(testUser.email);
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('id');
+    const responseBody = body.data as { email: string };
+    expect(responseBody.email).toBe(testUser.email);
   });
 
   it('/auth/profile (GET) - Unauthorized without token', async () => {
-    await request(app.getHttpServer()).get('/api/v1/auth/profile').expect(401);
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/auth/profile')
+      .expect(401);
+
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(false);
   });
 
   it('/auth/refresh (POST)', async () => {
@@ -136,26 +162,50 @@ describe('AuthController (e2e)', () => {
       .set('Authorization', `Bearer ${refreshToken}`)
       .expect(200);
 
-    expect(response.body).toHaveProperty('accessToken');
-    expect(response.body).toHaveProperty('refreshToken');
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveProperty('accessToken');
+    expect(body.data).toHaveProperty('refreshToken');
 
     // Update tokens for next requests
-    accessToken = response.body.accessToken;
-    refreshToken = response.body.refreshToken;
+    const responseBody = body.data as {
+      accessToken: string;
+      refreshToken: string;
+    };
+    accessToken = responseBody.accessToken;
+    refreshToken = responseBody.refreshToken;
   });
 
   it('/auth/logout (POST)', async () => {
-    await request(app.getHttpServer())
+    // Decode token to get jti before logout
+    const decodedToken = JSON.parse(
+      Buffer.from(refreshToken.split('.')[1], 'base64').toString(),
+    ) as { jti: string };
+    const jti = decodedToken.jti;
+
+    const response = await request(app.getHttpServer())
       .post('/api/v1/auth/logout')
       .set('Authorization', `Bearer ${refreshToken}`)
       .expect(200);
+
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(true);
+
+    // Assert database (session removed)
+    const session = await sessionRepository.findOne({
+      where: { id: jti },
+    });
+    expect(session).toBeNull();
   });
 
   it('/auth/refresh (POST) - Fails after logout', async () => {
     // Attempting to refresh with the token that was just logged out should fail
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/v1/auth/refresh')
       .set('Authorization', `Bearer ${refreshToken}`)
       .expect(401);
+
+    const body = response.body as ApiResponseDto<any>;
+    expect(body.success).toBe(false);
   });
 });

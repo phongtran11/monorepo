@@ -1,14 +1,17 @@
+import { UserModule } from '@api/user/user.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { Session } from './session.entity';
 import { SessionRepository } from './session.repository';
-import { JwtStrategy } from './strategy/jwt.strategy';
-import { JwtRefreshStrategy } from './strategy/jwt-refresh.strategy';
+import { JwtRefreshStrategy, JwtStrategy } from './strategy';
 
+/**
+ * Module for handling authentication and session management.
+ * Provides services, controllers, and strategies for JWT-based auth.
+ */
 @Module({
   imports: [UserModule, TypeOrmModule.forFeature([Session])],
   controllers: [AuthController],
