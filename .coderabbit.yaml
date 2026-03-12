@@ -1,29 +1,24 @@
 # CodeRabbit Configuration
 # Documentation: https://docs.coderabbit.ai/getting-started/configure-coderabbit
 
-language: "vi-VN"
+language: 'vi-VN'
 
 reviews:
+  review_status: true
   auto_review:
     enabled: true
+    request_changes_workflow: false
+    review_status: true
     instructions: |
       Bạn là một chuyên gia lập trình và review code cấp cao. Khi review các thay đổi trong PR này, vui lòng tuân thủ các quy tắc sau:
       1. Ngôn ngữ review: Sử dụng Tiếng Việt một cách chuyên nghiệp và thân thiện.
-      2. Coding Standards:
-          - Kiểm tra việc sử dụng TypeScript `as const` thay cho `enum`.
-          - Đảm bảo các thông báo lỗi (Exceptions) sử dụng Tiếng Việt.
-          - Kiểm tra các quy tắc bảo mật và RBAC (Roles vs Permissions).
-          - Tránh khai báo inline interfaces cho Express `Request`.
-      3. Chất lượng code:
+      2. Chất lượng code:
           - Đảm bảo code sạch, dễ đọc và dễ bảo trì.
           - Kiểm tra các lỗi logic tiềm ẩn hoặc các vấn đề về hiệu năng.
-      4. Phản hồi: Đưa ra các gợi ý cụ thể và giải thích lý do tại sao cần thay đổi.
-
+      3. Phản hồi: Đưa ra các gợi ý cụ thể và giải thích lý do tại sao cần thay đổi.
   tools:
     shellcheck:
       enabled: true
-    biom:
-      enabled: false
 
 chat:
-  enabled: true
+  auto_reply: true
