@@ -29,6 +29,6 @@ export const loggerConfig = registerAs(
       // Auto logging configuration
       autoLogging: true,
     },
-    forRoutes: ['*path'],
+    forRoutes: ['{*path}'],
   }),
 );

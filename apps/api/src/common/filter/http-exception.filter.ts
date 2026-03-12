@@ -28,9 +28,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const errorMessage =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : Array.isArray((exceptionResponse as { message: unknown }).message)
-          ? (exceptionResponse as { message: string[] }).message.join(', ')
-          : (exceptionResponse as { message: string }).message;
+        : (exceptionResponse as { message: unknown })?.message
+          ? Array.isArray((exceptionResponse as { message: unknown }).message)
+            ? (exceptionResponse as { message: string[] }).message.join(', ')
+            : (exceptionResponse as { message: string }).message
+          : exception.message ||
+            JSON.stringify(exceptionResponse) ||
+            'Lỗi không xác định';
 
     response.status(status).json(ApiResponseDto.error(errorMessage, status));
   }

@@ -1,6 +1,9 @@
 import { Permission } from './permission.constant';
 import { Role } from './role.constant';
 
+/**
+ * Mapping of Roles to their associated Permissions.
+ */
 export const RolePermissionsMap: Record<Role, Permission[]> = {
   [Role.ADMIN]: [
     Permission.READ_USERS,

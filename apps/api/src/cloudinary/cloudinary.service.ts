@@ -57,9 +57,14 @@ export class CloudinaryService {
 
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: folder || this.defaultFolder },
-        (error: UploadApiErrorResponse, result: UploadApiResponse) => {
+        (
+          error: UploadApiErrorResponse | undefined,
+          result: UploadApiResponse | undefined,
+        ) => {
           if (error) {
             handleReject(error);
+          } else if (!result) {
+            handleReject(new Error('Cloudinary upload returned no result'));
           } else {
             if (!isResolved) {
               isResolved = true;
@@ -95,16 +100,33 @@ export class CloudinaryService {
     files: Express.Multer.File[],
     folder?: string,
   ): Promise<UploadResponseDto[]> {
-    try {
-      const uploadPromises = files.map((file) =>
-        this.uploadImage(file, folder),
+    const results = await Promise.allSettled(
+      files.map((file) => this.uploadImage(file, folder)),
+    );
+
+    const fulfilled = results
+      .filter(
+        (r): r is PromiseFulfilledResult<UploadResponseDto> =>
+          r.status === 'fulfilled',
+      )
+      .map((r) => r.value);
+
+    const rejected = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+
+    if (rejected.length > 0) {
+      // Cleanup successful uploads if any failed
+      if (fulfilled.length > 0) {
+        await this.deleteMultipleImages(fulfilled.map((f) => f.publicId));
+      }
+
+      throw new BadRequestException(
+        `Lỗi khi tải nhiều ảnh lên Cloudinary: ${rejected.length} ảnh thất bại`,
       );
-      return await Promise.all(uploadPromises);
-    } catch (error) {
-      throw new BadRequestException('Lỗi khi tải nhiều ảnh lên Cloudinary', {
-        cause: error,
-      });
     }
+
+    return fulfilled;
   }
 
   /**

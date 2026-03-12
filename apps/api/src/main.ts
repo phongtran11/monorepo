@@ -27,7 +27,7 @@ async function bootstrap() {
 
   bootstrapApp(app);
 
-  app.use(compression);
+  app.use(compression());
 
   // Swagger with Bearer auth
   const config = new DocumentBuilder()

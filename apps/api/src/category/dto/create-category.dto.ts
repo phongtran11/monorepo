@@ -29,10 +29,11 @@ export class CreateCategoryDto {
   @ApiPropertyOptional({
     example: 'categories/oil.png',
     description: "The path to the category's logo.",
+    nullable: true,
   })
   @IsString()
   @IsOptional()
-  logoPath?: string;
+  logoPath?: string | null;
 
   /**
    * The order in which the category is displayed.

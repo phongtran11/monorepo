@@ -2,6 +2,7 @@ import { AccountStatus, Role } from '@lam-thinh-ecommerce/shared';
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -34,13 +35,13 @@ export class User {
    * The full name of the user.
    */
   @Column({ type: 'varchar', length: 255, name: 'full_name', nullable: true })
-  fullName: string;
+  fullName: string | null;
 
   /**
    * The phone number of the user.
    */
   @Column({ type: 'varchar', length: 20, nullable: true })
-  phone: string;
+  phone: string | null;
 
   /**
    * The role assigned to the user, defining their permissions.
@@ -69,4 +70,10 @@ export class User {
    */
   @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
   updatedAt: Date;
+
+  /**
+   * The date and time when the user was deleted.
+   */
+  @DeleteDateColumn({ type: 'timestamptz', name: 'deleted_at' })
+  deletedAt: Date | null;
 }

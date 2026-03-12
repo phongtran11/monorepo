@@ -4,41 +4,77 @@
 
 - **Monorepo Structure:** Managed with `pnpm` workspaces.
 - **Shared Code:** Use `packages/shared` for constants, types, and helpers shared between apps.
+  - **Example:** `@lam-thinh-ecommerce/shared`
 - **Type Safety:** Use TypeScript with strict typing. Prefer `as const` and `typeof` for constants.
-- **Barrel Exports:** Use `index.ts` files to export all relevant symbols within a directory (e.g., `dto`, `filter`, `decorator`, `config`). This simplifies imports and provides a cleaner API.
+  - **Example:**
+    ```typescript
+    /** Status of an account in the system. */
+    export const AccountStatus = {
+      INACTIVE: 1,
+      ACTIVE: 2,
+      BANNED: 3,
+    } as const;
+    export type AccountStatus =
+      (typeof AccountStatus)[keyof typeof AccountStatus];
+    ```
+- **Barrel Exports:** Use `index.ts` files to export all relevant symbols within a directory.
+  - **Example:** `packages/shared/src/index.ts`
+    ```typescript
+    export * from './constants';
+    export * from './helpers';
+    ```
 
 ## API Development (`apps/api`)
 
 - **Framework:** NestJS (Express).
 - **Versioning:** URI versioning (default `v1`). Global prefix: `api`.
+  - **Example:** `GET /api/v1/auth/profile`
 - **Response Format:** All responses must use `ApiResponseDto<T>`.
-  - Fields: `success`, `statusCode`, `message`, `data`, `error`.
-  - Use static helpers: `ApiResponseDto.success(data, ...)` and `ApiResponseDto.error(message, ...)`.
+  - **Example:**
+    ```typescript
+    return ApiResponseDto.success(data);
+    ```
 - **Architecture:**
-  - **Module Pattern:** Organize code into modules (`auth`, `user`, etc.).
-  - **Repository Pattern:** Use Custom Repository Pattern for database access. Repositories should extend `Repository<T>` or `TreeRepository<T>` and be decorated with `@Injectable()`. Inject them directly into services.
+  - **Module Pattern:** Organize code into modules (`auth`, `user`, `category`, etc.).
+  - **Repository Pattern:** Use Custom Repository Pattern for database access.
+    - **Example:** `apps/api/src/user/user.repository.ts`
+      ```typescript
+      @Injectable()
+      export class UserRepository extends Repository<User> {
+        constructor(protected dataSource: DataSource) {
+          super(User, dataSource.createEntityManager());
+        }
+      }
+      ```
   - **DTOs:**
-    - Use class-validator decorators for request validation.
-    - For response DTOs, use `@Exclude()` at the class level and `@Expose()` on fields to be returned.
-    - In Controllers, use `plainToInstance(DtoClass, data)` from `class-transformer` to ensure the response object is correctly transformed and filtered before being wrapped in `ApiResponseDto.success(data)`. Avoid using `as unknown as DtoClass`.
+    - Use `class-validator` decorators for request validation.
+      - **Example:** `apps/api/src/auth/dto/login.dto.ts` (using `@IsEmail()`, `@MinLength(8)`)
+    - For response DTOs, use `@Exclude()` at the class level and `@Expose()` on fields.
+      - **Example:** `apps/api/src/category/dto/category-response.dto.ts`
+  - **Transformation:** In Controllers, use `plainToInstance(DtoClass, data)` from `class-transformer`.
+    - **Example:** `apps/api/src/category/category.controller.ts`
+      ```typescript
+      const categories = await this.categoryService.findAll();
+      return ApiResponseDto.success(
+        plainToInstance(CategoryResponseDto, categories),
+      );
+      ```
   - **Configuration:** Use `@nestjs/config` with dedicated config files in `src/config/`.
-- **App Initialization:** All global configurations (prefix, versioning, pipes, filters) must be centralized in `src/common/factory/app.factory.ts`. This ensures consistency between `main.ts` and E2E tests.
-- **E2E Testing:**
-  - Use the `bootstrapApp` factory from `src/common/factory/app.factory.ts` for app initialization in `beforeAll`.
-  - Assert both API response structure (using `ApiResponseDto`) and database state (using repositories) to ensure complete data integrity.
+    - **Example:** `apps/api/src/config/app.config.ts` using `registerAs('app', ...)`
+- **App Initialization:** All global configurations must be centralized in `src/common/factory/app.factory.ts`.
+- **E2E Testing:** Use the `bootstrapApp` factory for app initialization in tests.
 - **Global Setup:**
   - Swagger documentation: `/api/docs`.
-  - Global `ValidationPipe` with `whitelist: true` and `transform: true`.
-  - Global `HttpExceptionFilter` for standardized error handling.
   - Logger: `nestjs-pino`.
 - **Error Handling:** Use Vietnamese for all `HttpException` messages.
-- **Documentation:** Always add Swagger decorators (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, etc.), example and descriptions for Swagger decorators when implementing controllers and DTOs in `apps/api/**`.
-- **Bootstrapping:** Use `void bootstrap()` for the entry point and call `bootstrapApp(app)`.
+- **Documentation:** Always add Swagger decorators (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, etc.).
+  - **Example:** `apps/api/src/auth/auth.controller.ts`
+- **Bootstrapping:** Use `void bootstrap()` for the entry point.
 
 ## Web Development (`apps/web`)
 
-- **Framework:** Next.js (observed in structure).
-- **Styling:** Tailwind CSS (observed `postcss.config.mjs` and `globals.css`).
+- **Framework:** Next.js.
+- **Styling:** Tailwind CSS.
 
 ## Coding Standards
 
@@ -52,9 +88,18 @@
 - **Semicolons:** Always use semicolons.
 - **Trailing Commas:** `all` in arrays and objects.
 - **Documentation:** Must include JSDoc comments for all public methods, classes, and interfaces.
-- **Imports:**
-  - Use `eslint-plugin-simple-import-sort`.
-  - Prioritize import from alias. Prefer workspace aliases (`@lam-thinh-ecommerce/...`) or path aliases (`@api/*` for API, `@web/*` for Web) for internal imports. Avoid relative paths.
+  - **Example:**
+    ```typescript
+    /**
+     * Converts a string into a URL-friendly slug.
+     * Handles Vietnamese characters and accents.
+     *
+     * @param text - The raw string to slugify.
+     * @returns The generated slug string.
+     */
+    export function slugify(text: string): string { ... }
+    ```
+- **Imports:** Use `eslint-plugin-simple-import-sort`. Prioritize import from alias (`@lam-thinh-ecommerce/...`, `@api/*`, `@web/*`). Avoid relative paths.
 
 ## Git & Workflow
 

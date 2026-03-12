@@ -1,3 +1,10 @@
+/**
+ * Converts a string into a URL-friendly slug.
+ * Handles Vietnamese characters and accents.
+ *
+ * @param text - The raw string to slugify.
+ * @returns The generated slug string.
+ */
 export function slugify(text: string): string {
   return text
     .toString()

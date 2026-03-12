@@ -44,13 +44,13 @@ export class Session {
    * The IP address from which the session was created.
    */
   @Column({ type: 'varchar', length: 45, nullable: true })
-  ip: string;
+  ip: string | null;
 
   /**
    * The user agent string from which the session was created.
    */
   @Column({ type: 'text', name: 'user_agent', nullable: true })
-  userAgent: string;
+  userAgent: string | null;
 
   /**
    * The timestamp when the session (refresh token) expires.

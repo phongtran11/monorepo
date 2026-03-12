@@ -108,7 +108,7 @@ export class AuthController {
     @Request() req: RefreshAuthRequest,
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
-  ) {
+  ): Promise<ApiResponseDto<TokenDto>> {
     const data = await this.authService.refreshToken(
       req.user.id,
       req.user.jti,
@@ -133,7 +133,9 @@ export class AuthController {
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  async logout(@Request() req: RefreshAuthRequest) {
+  async logout(
+    @Request() req: RefreshAuthRequest,
+  ): Promise<ApiResponseDto<null>> {
     await this.authService.logout(req.user.id, req.user.jti);
     return ApiResponseDto.success(null);
   }

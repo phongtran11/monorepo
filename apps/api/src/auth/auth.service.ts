@@ -40,7 +40,7 @@ export class AuthService {
    * @throws ConflictException if the email already exists.
    */
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
-    const existing = await this.userService.findByEmail(dto.email);
+    const existing = await this.userService.findByEmailWithDeleted(dto.email);
 
     if (existing) {
       throw new ConflictException('Email đã tồn tại');

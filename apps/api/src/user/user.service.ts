@@ -26,6 +26,19 @@ export class UserService {
   }
 
   /**
+   * Finds a user by email with deleted_at not null.
+   *
+   * @param email - The email of the user to find.
+   * @returns The user if found, null otherwise.
+   */
+  async findByEmailWithDeleted(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email },
+      withDeleted: true,
+    });
+  }
+
+  /**
    * Finds a user by ID.
    *
    * @param id - The ID of the user to find.

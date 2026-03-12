@@ -28,9 +28,28 @@ export class CategoryService {
    * @returns A list of category trees.
    */
   async findAllTree(): Promise<Category[]> {
-    return this.categoryRepository.findTrees({
+    const trees = await this.categoryRepository.findTrees({
       relations: ['children'],
     });
+
+    return this.sortCategoriesRecursive(trees);
+  }
+
+  /**
+   * Recursively sorts categories and their children by displayOrder.
+   *
+   * @param categories - The list of categories to sort.
+   * @returns The sorted list of categories.
+   */
+  private sortCategoriesRecursive(categories: Category[]): Category[] {
+    return categories
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      .map((category) => {
+        if (category.children && category.children.length > 0) {
+          category.children = this.sortCategoriesRecursive(category.children);
+        }
+        return category;
+      });
   }
 
   /**
@@ -62,7 +81,10 @@ export class CategoryService {
    */
   async create(dto: CreateCategoryDto): Promise<Category> {
     const slug = slugify(dto.name);
-    const existing = await this.categoryRepository.findOne({ where: { slug } });
+    const existing = await this.categoryRepository.findOne({
+      where: { slug },
+      withDeleted: true,
+    });
 
     if (existing) {
       throw new ConflictException('Slug danh mục đã tồn tại');
@@ -98,6 +120,7 @@ export class CategoryService {
       const slug = slugify(dto.name);
       const existing = await this.categoryRepository.findOne({
         where: { slug },
+        withDeleted: true,
       });
 
       if (existing && existing.id !== id) {

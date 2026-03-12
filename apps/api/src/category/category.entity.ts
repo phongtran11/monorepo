@@ -39,7 +39,7 @@ export class Category {
    * The path to the logo/image of the category.
    */
   @Column({ type: 'varchar', length: 255, name: 'logo_path', nullable: true })
-  logoPath: string;
+  logoPath: string | null;
 
   /**
    * The order in which the category is displayed.
@@ -75,5 +75,5 @@ export class Category {
    * The date and time when the category was soft-deleted.
    */
   @DeleteDateColumn({ type: 'timestamptz', name: 'deleted_at' })
-  deletedAt: Date;
+  deletedAt: Date | null;
 }
