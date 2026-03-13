@@ -1,4 +1,5 @@
 export { appConfig } from './app.config';
+export { cloudinaryConfig } from './cloudinary.config';
 export { databaseConfig } from './database.config';
 export type { Env } from './env.validation';
 export { validate } from './env.validation';

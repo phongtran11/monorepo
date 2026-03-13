@@ -2,33 +2,30 @@
   "name": "@lam-thinh-ecommerce/shared",
   "version": "1.0.0",
   "description": "Shared types, constants, helpers for the monorepo",
-  "main": "./dist/index.js",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
-    },
-    "./constants": {
-      "types": "./dist/constants/index.d.ts",
-      "default": "./dist/constants/index.js"
-    },
-    "./helpers": {
-      "types": "./dist/helpers/index.d.ts",
-      "default": "./dist/helpers/index.js"
-    },
-    "./types": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/types/index.js"
     }
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "dts-bundle-generator -o dist/index.d.ts src/index.ts && rolldown -c rolldown.config.ts",
+    "dev": "dts-bundle-generator -o dist/index.d.ts src/index.ts && rolldown -c rolldown.config.ts --watch",
     "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.12.4"
+  "packageManager": "pnpm@10.12.4",
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "dts-bundle-generator": "^9.5.1",
+    "rolldown": "1.0.0-rc.9"
+  }
 }

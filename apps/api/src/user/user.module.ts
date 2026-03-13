@@ -5,6 +5,9 @@ import { User } from './user.entity';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
 
+/**
+ * Module for handling user-related operations.
+ */
 @Module({
   imports: [TypeOrmModule.forFeature([User])],
   providers: [UserRepository, UserService],

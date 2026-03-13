@@ -1,12 +1,16 @@
+import { RefreshAuthUser, RefreshTokenPayload } from '@api/auth/jwt.type';
+import { Env } from '@api/config';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { Env } from 'src/config';
 
-import { RefreshAuthUser, RefreshTokenPayload } from '../jwt.type';
-
+/**
+ * Strategy for validating JWT refresh tokens.
+ * Extracts the token from the Authorization header and validates its payload,
+ * ensuring the token is still valid for a refresh operation.
+ */
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
   Strategy,
@@ -21,6 +25,14 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
+  /**
+   * Validates the JWT refresh token payload and returns the refresh user information.
+   *
+   * @param req - The current request object.
+   * @param payload - The decoded refresh token payload.
+   * @returns The user information, including the refresh token.
+   * @throws UnauthorizedException if the refresh token is missing or malformed.
+   */
   validate(req: Request, payload: RefreshTokenPayload): RefreshAuthUser {
     const refreshToken = req.get('Authorization')?.replace('Bearer', '').trim();
     if (!refreshToken) {

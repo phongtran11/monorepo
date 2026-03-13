@@ -1,4 +1,6 @@
-import { Role } from '@lam-thinh-ecommerce/shared/constants';
+import { AuthRequest } from '@api/auth/jwt.type';
+import { ROLES_KEY } from '@api/common';
+import { Role } from '@lam-thinh-ecommerce/shared';
 import {
   CanActivate,
   ExecutionContext,
@@ -7,13 +9,21 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { ROLES_KEY } from '../../common/decorator/roles.decorator';
-import { AuthRequest } from '../jwt.type';
-
+/**
+ * Guard that checks if the authenticated user has one of the required roles.
+ * Roles are defined via the `@Roles()` decorator.
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
+  /**
+   * Determines if the current user has one of the required roles to access the resource.
+   *
+   * @param context - The execution context of the request.
+   * @returns A boolean indicating if access is allowed.
+   * @throws ForbiddenException if the user does not have any of the required roles.
+   */
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
       context.getHandler(),

@@ -1,11 +1,12 @@
 import eslint from '@eslint/js';
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
+  globalIgnores(['dist/**', 'node_modules/**']),
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   eslintPluginPrettierRecommended,
@@ -15,6 +16,8 @@ export default defineConfig(
     },
     rules: {
       'no-console': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -27,6 +30,8 @@ export default defineConfig(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
+      '@typescript-eslint/no-floating-promises': 'warn',
+      '@typescript-eslint/no-unsafe-argument': 'warn',
     },
   },
   ...tseslint.configs.recommendedTypeCheckedOnly,
@@ -37,17 +42,9 @@ export default defineConfig(
         ...globals.jest,
       },
       parserOptions: {
-        projectService: {
-          allowDefaultProject: ['*.mjs', '*.js'],
-        },
+        project: true,
         tsconfigRootDir: import.meta.dirname,
       },
-    },
-  },
-  {
-    rules: {
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
     },
   },
 );

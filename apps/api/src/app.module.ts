@@ -5,9 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
-import { DBLogger } from './common/logger/database.logger';
+import { CategoryModule } from './category/category.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { DBLogger } from './common';
 import {
   appConfig,
+  cloudinaryConfig,
   databaseConfig,
   Env,
   jwtConfig,
@@ -15,13 +18,23 @@ import {
   validate,
 } from './config';
 
+/**
+ * Root module for the NestJS application.
+ * Handles global configuration, logging, database connection, and JWT setup.
+ */
 @Module({
   imports: [
     // Global config from .env with Zod validation
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig, loggerConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        loggerConfig,
+        cloudinaryConfig,
+      ],
       validate,
     }),
 
@@ -54,6 +67,8 @@ import {
     }),
 
     AuthModule,
+    CategoryModule,
+    CloudinaryModule,
   ],
 })
 export class AppModule {}

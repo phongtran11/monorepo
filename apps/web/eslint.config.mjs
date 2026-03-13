@@ -35,7 +35,9 @@ const eslintConfig = defineConfig([
   {
     languageOptions: {
       parserOptions: {
-        allowDefaultProject: ['*.mjs', '*.js'],
+        projectService: {
+          allowDefaultProject: ['*.mjs', '*.js', '*.ts'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

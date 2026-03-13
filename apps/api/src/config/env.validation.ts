@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/**
+ * Zod schema for environment variable validation.
+ */
 export const envSchema = z.object({
   // App
   NODE_ENV: z
@@ -18,13 +21,26 @@ export const envSchema = z.object({
 
   // Password Hashing
   PASSWORD_HASH_SECRET: z.string().min(32),
+
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+  CLOUDINARY_DEFAULT_FOLDER: z.string().default('uploads'),
 });
 
+/**
+ * Type inferred from the environment schema.
+ */
 export type Env = z.infer<typeof envSchema>;
 
 /**
  * Validate environment variables at startup.
  * Throws a detailed error if any required variable is missing or invalid.
+ *
+ * @param config A record of environment variables to validate.
+ * @returns The validated and typed environment configuration.
+ * @throws {Error} Detailed error message if validation fails.
  */
 export function validate(config: Record<string, unknown>): Env {
   const result = envSchema.safeParse(config);

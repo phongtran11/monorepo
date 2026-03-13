@@ -1,14 +1,21 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   ExpressAdapter,
   NestExpressApplication,
 } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import compression from 'compression';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { bootstrapApp } from './common';
 
+/**
+ * Bootstraps the NestJS application.
+ * Configures the application with Logger, Swagger, and compression.
+ *
+ * @returns {Promise<void>}
+ */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
@@ -18,14 +25,9 @@ async function bootstrap() {
 
   app.useLogger(app.get(Logger));
 
-  // Global prefix
-  app.setGlobalPrefix('api');
+  bootstrapApp(app);
 
-  // URI versioning (default v1)
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: '1',
-  });
+  app.use(compression());
 
   // Swagger with Bearer auth
   const config = new DocumentBuilder()
@@ -37,14 +39,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-    }),
-  );
-
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

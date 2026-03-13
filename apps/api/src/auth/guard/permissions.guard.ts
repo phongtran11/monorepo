@@ -1,7 +1,6 @@
-import {
-  Permission,
-  RolePermissionsMap,
-} from '@lam-thinh-ecommerce/shared/constants';
+import { AuthRequest } from '@api/auth/jwt.type';
+import { PERMISSIONS_KEY } from '@api/common';
+import { Permission, RolePermissionsMap } from '@lam-thinh-ecommerce/shared';
 import {
   CanActivate,
   ExecutionContext,
@@ -10,13 +9,21 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { PERMISSIONS_KEY } from '../../common/decorator/permissions.decorator';
-import { AuthRequest } from '../jwt.type';
-
+/**
+ * Guard that checks if the authenticated user has the required permissions.
+ * Permissions are defined via the `@Permissions()` decorator.
+ */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
+  /**
+   * Determines if the current user has permission to access the resource.
+   *
+   * @param context - The execution context of the request.
+   * @returns A boolean indicating if access is allowed.
+   * @throws ForbiddenException if the user lacks any of the required permissions.
+   */
   canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
       PERMISSIONS_KEY,

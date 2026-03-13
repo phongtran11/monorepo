@@ -2,6 +2,10 @@
   "name": "lam-thinh-ecommerce",
   "version": "1.0.0",
   "description": "",
+  "keywords": [],
+  "author": "phongtran11.tt@gmail.com",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
@@ -15,10 +19,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.12.4",
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "eslint": "^9.18.0",

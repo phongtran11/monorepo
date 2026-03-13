@@ -1,7 +1,16 @@
+/**
+ * Status of an account in the system.
+ */
 export const AccountStatus = {
-  INACTIVE: 1, // Require email verification (Customer) or password setup (Staff)
-  ACTIVE: 2, // Fully verified and ready
-  BANNED: 3, // Blocked by Admin
+  /** Require email verification (Customer) or password setup (Staff) */
+  INACTIVE: 1,
+  /** Fully verified and ready */
+  ACTIVE: 2,
+  /** Blocked by Admin */
+  BANNED: 3,
 } as const;
 
+/**
+ * Type representing the possible status values of an account.
+ */
 export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus];
