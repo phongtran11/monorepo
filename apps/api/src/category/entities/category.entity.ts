@@ -1,8 +1,10 @@
+import { CategoryImage } from '@api/category/entities/category-image.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   Tree,
   TreeChildren,
@@ -36,12 +38,6 @@ export class Category {
   slug: string;
 
   /**
-   * The path to the logo/image of the category.
-   */
-  @Column({ type: 'varchar', length: 255, name: 'logo_path', nullable: true })
-  logoPath: string | null;
-
-  /**
    * The order in which the category is displayed.
    */
   @Column({ type: 'int', name: 'display_order', default: 0 })
@@ -58,6 +54,12 @@ export class Category {
    */
   @TreeChildren()
   children: Category[];
+
+  /**
+   * Images associated with this category.
+   */
+  @OneToMany(() => CategoryImage, (image) => image.category)
+  images: CategoryImage[];
 
   /**
    * The date and time when the category was created.

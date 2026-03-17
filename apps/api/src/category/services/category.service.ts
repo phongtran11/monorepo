@@ -1,3 +1,6 @@
+import { CreateCategoryDto, UpdateCategoryDto } from '@api/category/dto';
+import { Category } from '@api/category/entities/category.entity';
+import { CategoryRepository } from '@api/category/repositories/category.repository';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
@@ -5,10 +8,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
-import { Category } from './category.entity';
-import { CategoryRepository } from './category.repository';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 
 /**
  * Service for managing categories.
@@ -93,7 +92,6 @@ export class CategoryService {
     const category = this.categoryRepository.create({
       name: dto.name,
       slug,
-      logoPath: dto.logoPath,
       displayOrder: dto.displayOrder,
     });
 
@@ -130,7 +128,6 @@ export class CategoryService {
       category.slug = slug;
     }
 
-    if (dto.logoPath !== undefined) category.logoPath = dto.logoPath;
     if (dto.displayOrder !== undefined)
       category.displayOrder = dto.displayOrder;
 

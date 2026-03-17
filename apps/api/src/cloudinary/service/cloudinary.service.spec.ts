@@ -1,10 +1,9 @@
+import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { v2 as cloudinary } from 'cloudinary';
 import streamifier from 'streamifier';
-
-import { CloudinaryService } from './cloudinary.service';
 
 jest.mock('cloudinary', () => ({
   v2: {

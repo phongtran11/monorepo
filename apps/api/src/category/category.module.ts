@@ -1,18 +1,30 @@
+import { CategoryController } from '@api/category/category.controller';
+import { Category, CategoryImage } from '@api/category/entities';
+import {
+  CategoryImageRepository,
+  CategoryRepository,
+} from '@api/category/repositories';
+import { CategoryImageService, CategoryService } from '@api/category/services';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-import { CategoryController } from './category.controller';
-import { Category } from './category.entity';
-import { CategoryRepository } from './category.repository';
-import { CategoryService } from './category.service';
 
 /**
  * Module for handling category-related operations.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Category])],
+  imports: [TypeOrmModule.forFeature([Category, CategoryImage])],
   controllers: [CategoryController],
-  providers: [CategoryService, CategoryRepository],
-  exports: [CategoryService, CategoryRepository],
+  providers: [
+    CategoryService,
+    CategoryRepository,
+    CategoryImageService,
+    CategoryImageRepository,
+  ],
+  exports: [
+    CategoryService,
+    CategoryRepository,
+    CategoryImageService,
+    CategoryImageRepository,
+  ],
 })
 export class CategoryModule {}

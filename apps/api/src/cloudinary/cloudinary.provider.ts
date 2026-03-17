@@ -1,4 +1,4 @@
-import { CloudinaryConfig } from '@api/config/cloudinary.config';
+import { CLOUDINARY_CONFIG_TOKEN, CloudinaryConfig } from '@api/config';
 import { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
@@ -21,7 +21,9 @@ export const CloudinaryProvider: Provider = {
    * @returns The configured Cloudinary instance.
    */
   useFactory: (configService: ConfigService) => {
-    const config = configService.getOrThrow<CloudinaryConfig>('cloudinary');
+    const config = configService.getOrThrow<CloudinaryConfig>(
+      CLOUDINARY_CONFIG_TOKEN,
+    );
     return cloudinary.config({
       cloud_name: config.cloudName,
       api_key: config.apiKey,

@@ -1,5 +1,6 @@
-import { Env } from '@api/config';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { UploadResponseDto } from '@api/cloudinary/dto';
+import { CLOUDINARY_CONFIG_TOKEN, CloudinaryConfig } from '@api/config';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   TransformationOptions,
@@ -9,13 +10,13 @@ import {
 } from 'cloudinary';
 import * as streamifier from 'streamifier';
 
-import { UploadResponseDto } from './dto/upload-response.dto';
-
 /**
  * Service for handling media uploads and deletions using Cloudinary.
  */
 @Injectable()
 export class CloudinaryService {
+  private readonly logger = new Logger(CloudinaryService.name);
+
   /**
    * The default folder where images will be uploaded if no folder is specified.
    */
@@ -26,8 +27,10 @@ export class CloudinaryService {
    *
    * @param configService - The configuration service to access environment variables.
    */
-  constructor(private readonly configService: ConfigService<Env>) {
-    this.defaultFolder = configService.getOrThrow('CLOUDINARY_DEFAULT_FOLDER');
+  constructor(private readonly configService: ConfigService) {
+    this.defaultFolder = this.configService.getOrThrow<CloudinaryConfig>(
+      CLOUDINARY_CONFIG_TOKEN,
+    ).defaultFolder;
   }
 
   /**
@@ -177,5 +180,87 @@ export class CloudinaryService {
     options: TransformationOptions,
   ): string {
     return cloudinary.url(publicId, options);
+  }
+
+  /**
+   * Uploads an image from buffer to the temporary folder.
+   *
+   * @param buffer - The image buffer to upload.
+   * @param userId - The ID of the user uploading the file.
+   * @returns The public ID and secure URL of the uploaded image.
+   */
+  async uploadToTemp(
+    buffer: Buffer,
+    userId: string,
+  ): Promise<{ publicId: string; secureUrl: string }> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'temp',
+          tags: ['temp', `user_${userId}`],
+        },
+        (error, result) => {
+          if (error) {
+            return reject(
+              new BadRequestException(
+                `Lỗi tải ảnh tạm lên Cloudinary: ${error.message}`,
+              ),
+            );
+          }
+          if (!result) {
+            return reject(
+              new BadRequestException('Cloudinary upload returned no result'),
+            );
+          }
+          resolve({
+            publicId: result.public_id,
+            secureUrl: result.secure_url,
+          });
+        },
+      );
+
+      streamifier.createReadStream(buffer).pipe(uploadStream);
+    });
+  }
+
+  /**
+   * Moves a temporary asset to a permanent location.
+   *
+   * @param publicId - The public ID of the temporary asset.
+   * @param destinationFolder - The destination folder path.
+   * @returns The updated public ID.
+   */
+  async moveToPermanent(
+    publicId: string,
+    destinationFolder: string,
+  ): Promise<string> {
+    try {
+      const fileName = publicId.split('/').pop();
+      const newPublicId = `${destinationFolder}/${fileName}`;
+
+      const result = (await cloudinary.uploader.rename(publicId, newPublicId, {
+        overwrite: true,
+        invalidate: true,
+      })) as UploadApiResponse;
+
+      return result.public_id;
+    } catch (error) {
+      throw new BadRequestException(
+        `Lỗi khi di chuyển ảnh Cloudinary: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Deletes an asset from Cloudinary.
+   *
+   * @param publicId - The public ID of the asset to delete.
+   */
+  async deleteAsset(publicId: string): Promise<void> {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+      this.logger.error(`Failed to delete asset ${publicId}`, error);
+    }
   }
 }

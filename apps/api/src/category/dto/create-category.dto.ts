@@ -24,18 +24,6 @@ export class CreateCategoryDto {
   name: string;
 
   /**
-   * The path to the category's logo.
-   */
-  @ApiPropertyOptional({
-    example: 'categories/oil.png',
-    description: "The path to the category's logo.",
-    nullable: true,
-  })
-  @IsString()
-  @IsOptional()
-  logoPath?: string | null;
-
-  /**
    * The order in which the category is displayed.
    */
   @ApiPropertyOptional({

@@ -35,7 +35,10 @@
     return ApiResponseDto.success(data);
     ```
 - **Architecture:**
-  - **Module Pattern:** Organize code into modules (`auth`, `user`, `category`, etc.).
+  - **Module Pattern:**
+    - Organize code into modules (`auth`, `user`, `category`, etc.).
+    - When a module contains more than 2 files of the same type (e.g., entity, repository, service, dto), group them into a dedicated sub-folder.
+    - **Example:** `apps/api/src/category/entities/`, `apps/api/src/category/dto/`.
   - **Repository Pattern:** Use Custom Repository Pattern for database access.
     - **Example:** `apps/api/src/user/user.repository.ts`
       ```typescript
@@ -45,6 +48,14 @@
           super(User, dataSource.createEntityManager());
         }
       }
+      ```
+  - **Entities:**
+    - Explicitly define TypeScript types for all columns.
+    - If a column is `nullable: true` in TypeORM `@Column`, the TypeScript type MUST include `| null`.
+    - **Example:** `apps/api/src/user/user.entity.ts`
+      ```typescript
+      @Column({ type: 'varchar', length: 255, nullable: true })
+      fullName: string | null;
       ```
   - **DTOs:**
     - Use `class-validator` decorators for request validation.
@@ -83,6 +94,16 @@
   - Variables/Methods: `camelCase`.
   - Classes/Interfaces: `PascalCase`.
   - Constants: `UPPER_SNAKE_CASE` or `PascalCase` for objects used as enums.
+- **DTO and Interface Declarations:**
+  - Prefer explicit, clean interface declarations for data structures and metadata.
+  - **Example:**
+    ```typescript
+    export interface TempUploadMeta {
+      publicId: string;
+      secureUrl: string;
+      userId: string;
+    }
+    ```
 - **Indentation:** 2 spaces.
 - **Quotes:** Single quotes.
 - **Semicolons:** Always use semicolons.
