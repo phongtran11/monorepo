@@ -1,4 +1,5 @@
 import { JwtAuthGuard, PermissionsGuard } from '@api/auth/guard';
+import type { AuthUser } from '@api/auth/jwt.type';
 import {
   CategoryResponseDto,
   CreateCategoryDto,
@@ -6,6 +7,7 @@ import {
 } from '@api/category/dto';
 import { CategoryService } from '@api/category/services/category.service';
 import { ApiResponseDto, ApiResponseOf, Permissions } from '@api/common';
+import { CurrentUser } from '@api/common/decorator';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -58,8 +60,10 @@ export class CategoryController {
 
   /**
    * Creates a new category.
+   * If imageId is provided, the image will be attached atomically.
    *
    * @param dto - The data to create the category.
+   * @param user - The authenticated user.
    * @returns The newly created category.
    */
   @Post()
@@ -69,8 +73,9 @@ export class CategoryController {
   @ApiCreatedResponse({ type: ApiResponseOf(CategoryResponseDto) })
   async create(
     @Body() dto: CreateCategoryDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
-    const category = await this.categoryService.create(dto);
+    const category = await this.categoryService.create(dto, user.id);
     return ApiResponseDto.success(
       plainToInstance(CategoryResponseDto, category),
     );

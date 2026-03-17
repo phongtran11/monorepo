@@ -45,4 +45,17 @@ export class CreateCategoryDto {
   @IsUUID()
   @IsOptional()
   parentId?: string;
+
+  /**
+   * The temporary upload ID for the category image.
+   * If provided, the image will be attached to the category upon creation.
+   * This ensures atomicity - either both category and image are created, or neither.
+   */
+  @ApiPropertyOptional({
+    example: 'temp-upload-id',
+    description: 'The temporary upload ID for the category image.',
+  })
+  @IsString()
+  @IsOptional()
+  imageId?: string;
 }

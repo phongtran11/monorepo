@@ -1,6 +1,7 @@
 import { CreateCategoryDto, UpdateCategoryDto } from '@api/category/dto';
 import { Category } from '@api/category/entities/category.entity';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
+import { CategoryImageService } from '@api/category/services/category-image.service';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
@@ -8,6 +9,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 
 /**
  * Service for managing categories.
@@ -18,8 +20,14 @@ export class CategoryService {
    * Creates an instance of the CategoryService.
    *
    * @param categoryRepository - The repository for category database operations.
+   * @param categoryImageService - The service for category image operations.
+   * @param dataSource - The TypeORM data source for transaction support.
    */
-  constructor(private readonly categoryRepository: CategoryRepository) {}
+  constructor(
+    private readonly categoryRepository: CategoryRepository,
+    private readonly categoryImageService: CategoryImageService,
+    private readonly dataSource: DataSource,
+  ) {}
 
   /**
    * Retrieves all categories in a tree structure.
@@ -72,35 +80,60 @@ export class CategoryService {
   }
 
   /**
-   * Creates a new category.
+   * Creates a new category with optional image attachment.
+   * This operation is atomic - if image attachment fails, the entire transaction rolls back.
    *
    * @param dto - The data for creating the category.
-   * @returns The newly created category.
+   * @param userId - The ID of the authenticated user (required if imageId is provided).
+   * @returns The newly created category with attached images.
    * @throws ConflictException if the slug already exists.
+   * @throws BadRequestException if imageId is provided but userId is missing.
    */
-  async create(dto: CreateCategoryDto): Promise<Category> {
-    const slug = slugify(dto.name);
-    const existing = await this.categoryRepository.findOne({
-      where: { slug },
-      withDeleted: true,
+  async create(dto: CreateCategoryDto, userId: string): Promise<Category> {
+    // Use transaction for atomic operation (create category + attach image)
+    return this.dataSource.transaction(async (manager) => {
+      const categoryRepository = manager.getRepository(Category);
+      const slug = slugify(dto.name);
+      const existing = await categoryRepository.findOne({
+        where: { slug },
+        withDeleted: true,
+      });
+
+      if (existing) {
+        throw new ConflictException('Slug danh mục đã tồn tại');
+      }
+
+      const category = categoryRepository.create({
+        name: dto.name,
+        slug,
+        displayOrder: dto.displayOrder,
+      });
+
+      if (dto.parentId) {
+        const parent = await categoryRepository.findOne({
+          where: { id: dto.parentId },
+        });
+
+        if (!parent) {
+          throw new NotFoundException('Danh mục cha không tồn tại');
+        }
+
+        category.parent = parent;
+      }
+
+      const savedCategory = await categoryRepository.save(category);
+
+      // Attach image if imageId is provided
+      if (dto.imageId) {
+        await this.categoryImageService.attachImage(
+          dto.imageId,
+          userId,
+          savedCategory.id,
+        );
+      }
+
+      return savedCategory;
     });
-
-    if (existing) {
-      throw new ConflictException('Slug danh mục đã tồn tại');
-    }
-
-    const category = this.categoryRepository.create({
-      name: dto.name,
-      slug,
-      displayOrder: dto.displayOrder,
-    });
-
-    if (dto.parentId) {
-      const parent = await this.findOne(dto.parentId);
-      category.parent = parent;
-    }
-
-    return this.categoryRepository.save(category);
   }
 
   /**
