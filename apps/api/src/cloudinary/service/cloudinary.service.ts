@@ -228,12 +228,12 @@ export class CloudinaryService {
    *
    * @param publicId - The public ID of the temporary asset.
    * @param destinationFolder - The destination folder path.
-   * @returns The updated public ID.
+   * @returns The updated public ID and secure URL.
    */
   async moveToPermanent(
     publicId: string,
     destinationFolder: string,
-  ): Promise<string> {
+  ): Promise<{ publicId: string; secureUrl: string }> {
     try {
       const fileName = publicId.split('/').pop();
       const newPublicId = `${destinationFolder}/${fileName}`;
@@ -243,7 +243,9 @@ export class CloudinaryService {
         invalidate: true,
       })) as UploadApiResponse;
 
-      return result.public_id;
+      await cloudinary.uploader.remove_tag('temp', [result.public_id]);
+
+      return { publicId: result.public_id, secureUrl: result.secure_url };
     } catch (error) {
       throw new BadRequestException(
         `Lỗi khi di chuyển ảnh Cloudinary: ${(error as Error).message}`,

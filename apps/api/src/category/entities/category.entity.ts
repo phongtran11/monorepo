@@ -1,10 +1,8 @@
-import { CategoryImage } from '@api/category/entities/category-image.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
-  OneToMany,
   PrimaryGeneratedColumn,
   Tree,
   TreeChildren,
@@ -56,10 +54,21 @@ export class Category {
   children: Category[];
 
   /**
-   * Images associated with this category.
+   * The secure URL of the category image.
    */
-  @OneToMany(() => CategoryImage, (image) => image.category)
-  images: CategoryImage[];
+  @Column({ type: 'varchar', length: 500, name: 'image_url', nullable: true })
+  imageUrl: string | null;
+
+  /**
+   * The public ID of the image in Cloudinary.
+   */
+  @Column({
+    type: 'varchar',
+    length: 255,
+    name: 'image_public_id',
+    nullable: true,
+  })
+  imagePublicId: string | null;
 
   /**
    * The date and time when the category was created.

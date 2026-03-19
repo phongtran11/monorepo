@@ -7,6 +7,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.12.4",
   "scripts": {
+    "debug:api": "pnpm --filter @lam-thinh-ecommerce/api start:debug",
     "dev": "pnpm -r --parallel run dev",
     "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",

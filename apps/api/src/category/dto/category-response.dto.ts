@@ -47,6 +47,27 @@ export class CategoryResponseDto {
   displayOrder: number;
 
   /**
+   * The secure URL of the category image.
+   */
+  @ApiPropertyOptional({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg',
+    description: 'The secure URL of the category image.',
+  })
+  @Expose()
+  imageUrl?: string | null;
+
+  /**
+   * The public ID of the image in Cloudinary.
+   */
+  @ApiPropertyOptional({
+    example: 'uploads/category/uuid/image-id',
+    description: 'The public ID of the image in Cloudinary.',
+  })
+  @Expose()
+  imagePublicId?: string | null;
+
+  /**
    * The children of this category.
    */
   @ApiPropertyOptional({

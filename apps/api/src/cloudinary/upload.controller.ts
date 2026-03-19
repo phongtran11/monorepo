@@ -1,6 +1,8 @@
-import type { AuthRequest } from '@api/auth/jwt.type';
+import { JwtAuthGuard } from '@api/auth/guard';
+import type { AuthRequest, AuthUser } from '@api/auth/jwt.type';
 import { TempUploadResponseDto } from '@api/cloudinary/dto';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
+import { CurrentUser } from '@api/common';
 import { ApiResponseDto } from '@api/common/dto/api-response.dto';
 import {
   Controller,
@@ -9,10 +11,17 @@ import {
   Post,
   Request,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 
 /**
@@ -52,12 +61,14 @@ export class UploadController {
     status: 201,
     type: TempUploadResponseDto,
   })
+  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(JwtAuthGuard)
   async uploadTemp(
-    @Request() req: AuthRequest,
+    @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const result = await this.tempUploadService.saveTempMeta(req.user.id, file);
+    const result = await this.tempUploadService.saveTempMeta(user.id, file);
     return ApiResponseDto.success(
       plainToInstance(TempUploadResponseDto, result),
     );
@@ -66,7 +77,7 @@ export class UploadController {
   /**
    * Cancels a temporary upload, deleting it from storage.
    *
-   * @param req - The request object containing user information.
+   * @param user - The current authenticated user.
    * @param tempId - The ID of the temporary upload.
    * @returns A success response.
    */
@@ -74,11 +85,13 @@ export class UploadController {
   @ApiResponse({
     status: 200,
   })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   async cancelTemp(
-    @Request() req: AuthRequest,
+    @CurrentUser() user: AuthUser,
     @Param('tempId') tempId: string,
   ) {
-    await this.tempUploadService.cancelTemp(tempId, req.user.id);
+    await this.tempUploadService.cancelTemp(tempId, user.id);
     return ApiResponseDto.success(null, 'Đã hủy ảnh tạm thành công');
   }
 }

@@ -1,7 +1,8 @@
 import { CreateCategoryDto, UpdateCategoryDto } from '@api/category/dto';
 import { Category } from '@api/category/entities/category.entity';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
-import { CategoryImageService } from '@api/category/services/category-image.service';
+import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
+import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
@@ -20,12 +21,14 @@ export class CategoryService {
    * Creates an instance of the CategoryService.
    *
    * @param categoryRepository - The repository for category database operations.
-   * @param categoryImageService - The service for category image operations.
+   * @param tempUploadService - The service to handle temporary uploads.
+   * @param cloudinaryService - The service to handle cloudinary operations.
    * @param dataSource - The TypeORM data source for transaction support.
    */
   constructor(
     private readonly categoryRepository: CategoryRepository,
-    private readonly categoryImageService: CategoryImageService,
+    private readonly tempUploadService: TempUploadService,
+    private readonly cloudinaryService: CloudinaryService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -35,9 +38,7 @@ export class CategoryService {
    * @returns A list of category trees.
    */
   async findAllTree(): Promise<Category[]> {
-    const trees = await this.categoryRepository.findTrees({
-      relations: ['children'],
-    });
+    const trees = await this.categoryRepository.findTrees();
 
     return this.sortCategoriesRecursive(trees);
   }
@@ -81,59 +82,96 @@ export class CategoryService {
 
   /**
    * Creates a new category with optional image attachment.
-   * This operation is atomic - if image attachment fails, the entire transaction rolls back.
+   *
+   * Pattern: Pre-process all external → DB transaction
+   * - External services (Redis, Cloudinary) called BEFORE transaction
+   * - Transaction only contains DB operations (minimizes lock time)
+   * - If external services fail, no DB changes occur
+   * - If DB fails, Cloudinary image is orphaned (acceptable - can be cleaned by scheduler)
    *
    * @param dto - The data for creating the category.
    * @param userId - The ID of the authenticated user (required if imageId is provided).
-   * @returns The newly created category with attached images.
+   * @returns The newly created category.
    * @throws ConflictException if the slug already exists.
-   * @throws BadRequestException if imageId is provided but userId is missing.
+   * @throws NotFoundException if parent category or temp upload not found.
    */
   async create(dto: CreateCategoryDto, userId: string): Promise<Category> {
-    // Use transaction for atomic operation (create category + attach image)
-    return this.dataSource.transaction(async (manager) => {
-      const categoryRepository = manager.getRepository(Category);
-      const slug = slugify(dto.name);
-      const existing = await categoryRepository.findOne({
-        where: { slug },
-        withDeleted: true,
-      });
+    const slug = slugify(dto.name);
 
-      if (existing) {
-        throw new ConflictException('Slug danh mục đã tồn tại');
-      }
+    // Step 1: Validate slug (read-only, no lock)
+    const existingSlug = await this.categoryRepository.findOne({
+      where: { slug },
+      withDeleted: true,
+    });
 
-      const category = categoryRepository.create({
-        name: dto.name,
-        slug,
-        displayOrder: dto.displayOrder,
-      });
+    if (existingSlug) {
+      throw new ConflictException('Slug danh mục đã tồn tại');
+    }
 
-      if (dto.parentId) {
-        const parent = await categoryRepository.findOne({
-          where: { id: dto.parentId },
+    // Step 2: Pre-process image - ALL external operations BEFORE transaction
+    let finalImagePublicId: string | null = null;
+    let finalImageUrl: string | null = null;
+
+    if (dto.imageId) {
+      // 2a. Consume temp upload (Redis)
+      const { publicId } = await this.tempUploadService.consumeTempMeta(
+        dto.imageId,
+        userId,
+      );
+
+      // 2b. Move to permanent location
+      // Pattern: uploads/category/{year-month}/{uuid}
+      const uploadBatch = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+      const moved = await this.cloudinaryService.moveToPermanent(
+        publicId,
+        `uploads/category/${uploadBatch}`,
+      );
+
+      finalImagePublicId = moved.publicId;
+      finalImageUrl = moved.secureUrl;
+    }
+
+    // Step 3: Database transaction - ONLY DB operations, no external calls
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const categoryRepository = manager.getRepository(Category);
+
+        // Prepare category entity with final image URLs
+        const category = categoryRepository.create({
+          name: dto.name,
+          slug,
+          displayOrder: dto.displayOrder,
+          imagePublicId: finalImagePublicId,
+          imageUrl: finalImageUrl,
         });
 
-        if (!parent) {
-          throw new NotFoundException('Danh mục cha không tồn tại');
+        // Load parent if provided
+        if (dto.parentId) {
+          const parent = await categoryRepository.findOne({
+            where: { id: dto.parentId },
+          });
+
+          if (!parent) {
+            throw new NotFoundException('Danh mục cha không tồn tại');
+          }
+
+          category.parent = parent;
         }
 
-        category.parent = parent;
+        // Save category - transaction ends here with final image reference
+        return categoryRepository.save(category);
+      });
+    } catch (error) {
+      // Rollback: delete permanent image if DB transaction failed
+      if (finalImagePublicId) {
+        await this.cloudinaryService.deleteAsset(finalImagePublicId);
       }
-
-      const savedCategory = await categoryRepository.save(category);
-
-      // Attach image if imageId is provided
-      if (dto.imageId) {
-        await this.categoryImageService.attachImage(
-          dto.imageId,
-          userId,
-          savedCategory.id,
-        );
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException('Slug danh mục đã tồn tại');
       }
-
-      return savedCategory;
-    });
+      throw error;
+    }
   }
 
   /**
@@ -141,58 +179,137 @@ export class CategoryService {
    *
    * @param id - The ID of the category to update.
    * @param dto - The data for updating the category.
+   * @param userId - The ID of the authenticated user (required if imageId is provided).
    * @returns The updated category.
    * @throws ConflictException if the new slug already exists for another category.
    */
-  async update(id: string, dto: UpdateCategoryDto): Promise<Category> {
-    const category = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateCategoryDto,
+    userId: string,
+  ): Promise<Category> {
+    // Pre-process image BEFORE transaction (same pattern as create)
+    let newImagePublicId: string | null = null;
+    let newImageUrl: string | null = null;
 
-    if (dto.name && dto.name !== category.name) {
-      const slug = slugify(dto.name);
-      const existing = await this.categoryRepository.findOne({
-        where: { slug },
-        withDeleted: true,
+    if (dto.imageId) {
+      const { publicId } = await this.tempUploadService.consumeTempMeta(
+        dto.imageId,
+        userId,
+      );
+      const uploadBatch = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const moved = await this.cloudinaryService.moveToPermanent(
+        publicId,
+        `uploads/category/${uploadBatch}`,
+      );
+      newImagePublicId = moved.publicId;
+      newImageUrl = moved.secureUrl;
+    }
+
+    let oldImagePublicId: string | null = null;
+
+    try {
+      const result = await this.dataSource.transaction(async (manager) => {
+        const categoryRepo = manager.getRepository(Category);
+
+        const category = await categoryRepo.findOne({
+          where: { id },
+          relations: ['parent'],
+        });
+
+        if (!category) {
+          throw new NotFoundException('Danh mục không tồn tại');
+        }
+
+        // Track old image for post-transaction cleanup
+        if (dto.imageId !== undefined) {
+          oldImagePublicId = category.imagePublicId;
+        }
+
+        if (dto.name && dto.name !== category.name) {
+          const slug = slugify(dto.name);
+          const existing = await categoryRepo.findOne({
+            where: { slug },
+            withDeleted: true,
+          });
+
+          if (existing && existing.id !== id) {
+            throw new ConflictException('Slug danh mục đã tồn tại');
+          }
+          category.name = dto.name;
+          category.slug = slug;
+        }
+
+        if (dto.displayOrder !== undefined) {
+          category.displayOrder = dto.displayOrder;
+        }
+
+        // Apply new image if provided
+        if (dto.imageId !== undefined) {
+          category.imagePublicId = newImagePublicId;
+          category.imageUrl = newImageUrl;
+        }
+
+        if (dto.parentId !== undefined) {
+          if (dto.parentId === null) {
+            category.parent = null;
+          } else {
+            if (dto.parentId === id) {
+              throw new BadRequestException(
+                'Danh mục không thể là cha của chính nó',
+              );
+            }
+
+            const parent = await categoryRepo.findOne({
+              where: { id: dto.parentId },
+            });
+
+            if (!parent) {
+              throw new NotFoundException('Danh mục cha không tồn tại');
+            }
+
+            const descendants =
+              await this.categoryRepository.findDescendants(category);
+
+            if (descendants.some((d) => d.id === dto.parentId)) {
+              throw new BadRequestException(
+                'Danh mục cha không thể là con của danh mục hiện tại',
+              );
+            }
+
+            category.parent = parent;
+          }
+        }
+
+        return categoryRepo.save(category);
       });
 
-      if (existing && existing.id !== id) {
+      // Post-transaction: delete old Cloudinary image (best-effort)
+      if (oldImagePublicId) {
+        await this.cloudinaryService.deleteAsset(oldImagePublicId);
+      }
+
+      return result;
+    } catch (error) {
+      // Rollback: delete newly moved image if DB transaction failed
+      if (newImagePublicId) {
+        await this.cloudinaryService.deleteAsset(newImagePublicId);
+      }
+      if (this.isUniqueConstraintError(error)) {
         throw new ConflictException('Slug danh mục đã tồn tại');
       }
-      category.name = dto.name;
-      category.slug = slug;
+      throw error;
     }
+  }
 
-    if (dto.displayOrder !== undefined)
-      category.displayOrder = dto.displayOrder;
-
-    if (dto.parentId !== undefined) {
-      if (dto.parentId === null) {
-        category.parent = null;
-      } else {
-        if (dto.parentId === id) {
-          throw new BadRequestException(
-            'Danh mục không thể là cha của chính nó',
-          );
-        }
-
-        const parent = await this.findOne(dto.parentId);
-
-        const descendants =
-          await this.categoryRepository.findDescendants(category);
-        const isDescendant = descendants.some(
-          (desc) => desc.id === dto.parentId,
-        );
-
-        if (isDescendant) {
-          throw new BadRequestException(
-            'Danh mục cha không thể là con của danh mục hiện tại',
-          );
-        }
-
-        category.parent = parent;
-      }
-    }
-
-    return this.categoryRepository.save(category);
+  /**
+   * Checks whether an error is a PostgreSQL unique constraint violation (code 23505).
+   *
+   * @param error - The error to check.
+   * @returns True if the error is a unique constraint violation.
+   */
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (error as { code?: string })?.code === '23505';
   }
 
   /**

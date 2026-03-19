@@ -86,6 +86,7 @@ export class CategoryController {
    *
    * @param id - The unique identifier of the category to update.
    * @param dto - The updated data.
+   * @param user - The authenticated user.
    * @returns The updated category.
    */
   @Patch(':id')
@@ -96,8 +97,9 @@ export class CategoryController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
-    const category = await this.categoryService.update(id, dto);
+    const category = await this.categoryService.update(id, dto, user.id);
     return ApiResponseDto.success(
       plainToInstance(CategoryResponseDto, category),
     );
