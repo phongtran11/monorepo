@@ -3,7 +3,7 @@ import { Category } from '@api/category/entities/category.entity';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
-import { slugify } from '@lam-thinh-ecommerce/shared';
+import { formatYearMonth, slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -121,7 +121,7 @@ export class CategoryService {
 
       // 2b. Move to permanent location
       // Pattern: uploads/category/{year-month}/{uuid}
-      const uploadBatch = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const uploadBatch = formatYearMonth();
 
       const moved = await this.cloudinaryService.moveToPermanent(
         publicId,
@@ -197,7 +197,7 @@ export class CategoryService {
         dto.imageId,
         userId,
       );
-      const uploadBatch = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const uploadBatch = formatYearMonth();
       const moved = await this.cloudinaryService.moveToPermanent(
         publicId,
         `uploads/category/${uploadBatch}`,
