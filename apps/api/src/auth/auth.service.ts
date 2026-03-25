@@ -1,3 +1,4 @@
+import { TokenDto } from '@api/auth/dto/token.dto';
 import { Env } from '@api/config';
 import { User } from '@api/user/user.entity';
 import { UserService } from '@api/user/user.service';
@@ -95,9 +96,13 @@ export class AuthService {
    * @param user - The user for whom to generate tokens.
    * @param ip - (Optional) The user's IP address.
    * @param userAgent - (Optional) The user's user agent string.
-   * @returns A promise that resolves to the access and refresh tokens.
+   * @returns A promise that resolves to the access and refresh tokens with expiration times.
    */
-  private async generateTokens(user: User, ip?: string, userAgent?: string) {
+  private async generateTokens(
+    user: User,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<TokenDto> {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -140,7 +145,18 @@ export class AuthService {
 
     await this.sessionRepository.save(session);
 
-    return { accessToken, refreshToken };
+    const accessTokenExpiresIn =
+      Number(ms(this.configService.getOrThrow('JWT_ACCESS_EXPIRATION'))) / 1000; // convert to seconds
+    const refreshTokenExpiresIn =
+      Number(ms(this.configService.getOrThrow('JWT_REFRESH_EXPIRATION'))) /
+      1000;
+
+    return {
+      accessToken,
+      accessTokenExpiresIn,
+      refreshToken,
+      refreshTokenExpiresIn,
+    };
   }
 
   /**
