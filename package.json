@@ -9,10 +9,13 @@
   "scripts": {
     "debug:api": "pnpm --filter @lam-thinh-ecommerce/api start:debug",
     "dev": "pnpm -r --parallel run dev",
+    "dev:admin": "pnpm --filter @lam-thinh-ecommerce/admin dev",
     "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
     "dev:shared": "pnpm --filter @lam-thinh-ecommerce/shared dev",
+    "dev:api-and-admin": "pnpm -r --parallel --filter @lam-thinh-ecommerce/admin --filter @lam-thinh-ecommerce/api run dev",
     "build": "pnpm -r run build",
+    "build:admin": "pnpm --filter @lam-thinh-ecommerce/admin build",
     "build:web": "pnpm --filter @lam-thinh-ecommerce/web build",
     "build:api": "pnpm --filter @lam-thinh-ecommerce/api build",
     "build:shared": "pnpm --filter @lam-thinh-ecommerce/shared build",
