@@ -10,7 +10,9 @@
       "Bash(pnpm --filter @lam-thinh-ecommerce/api test)",
       "Bash(git stash:*)",
       "mcp__gitnexus__impact",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(pnpm:*)",
+      "Bash(npx jest:*)"
     ]
   }
 }

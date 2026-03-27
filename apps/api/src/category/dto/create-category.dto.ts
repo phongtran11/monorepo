@@ -44,7 +44,7 @@ export class CreateCategoryDto {
   })
   @IsUUID()
   @IsOptional()
-  parentId?: string;
+  parentId?: string | null;
 
   /**
    * The temporary upload ID for the category image.
