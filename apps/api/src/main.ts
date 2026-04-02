@@ -39,6 +39,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0', () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const apiUrl = isProduction
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${process.env.PORT ?? 3000}`;
+
+    app.get(Logger).log(`API is running on ${apiUrl}/api/docs`, 'Bootstrap');
+  });
 }
 void bootstrap();
