@@ -21,7 +21,7 @@ Thumbs.db
 # Environment
 .env
 .env.local
-.env.*.local
 
 # Turbo
 .turbo
+.gitnexus

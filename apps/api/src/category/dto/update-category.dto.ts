@@ -1,6 +1,5 @@
+import { CreateCategoryDto } from '@api/category/dto/create-category.dto';
 import { PartialType } from '@nestjs/swagger';
-
-import { CreateCategoryDto } from './create-category.dto';
 
 /**
  * Data transfer object for updating an existing category.

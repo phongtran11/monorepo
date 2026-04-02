@@ -19,14 +19,17 @@ export const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1),
   JWT_REFRESH_EXPIRATION: z.string().default('7d'),
 
-  // Password Hashing
+  // Password Hashing - Use crypto.randomBytes(32).toString('hex');
   PASSWORD_HASH_SECRET: z.string().min(32),
 
   // Cloudinary
-  CLOUDINARY_CLOUD_NAME: z.string(),
-  CLOUDINARY_API_KEY: z.string(),
-  CLOUDINARY_API_SECRET: z.string(),
+  CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  CLOUDINARY_API_KEY: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
   CLOUDINARY_DEFAULT_FOLDER: z.string().default('uploads'),
+
+  // Redis
+  REDIS_URL: z.string().min(1),
 });
 
 /**

@@ -1,10 +1,9 @@
+import { CategoryController } from '@api/category/category.controller';
+import { Category } from '@api/category/entities';
+import { CategoryRepository } from '@api/category/repositories';
+import { CategoryService } from '@api/category/services';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-import { CategoryController } from './category.controller';
-import { Category } from './category.entity';
-import { CategoryRepository } from './category.repository';
-import { CategoryService } from './category.service';
 
 /**
  * Module for handling category-related operations.

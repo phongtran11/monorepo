@@ -14,3 +14,12 @@ export const Role = {
  * Type representing the available user roles.
  */
 export type Role = (typeof Role)[keyof typeof Role];
+
+/**
+ * Human-readable labels for each role, keyed by role value.
+ */
+export const ROLE_LABELS: Record<number, string> = {
+  [Role.CUSTOMER]: 'User',
+  [Role.STAFF]: 'Staff',
+  [Role.ADMIN]: 'Super Admin',
+};

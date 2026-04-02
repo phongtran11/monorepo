@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(git -C /Users/phong.tran/workspace/sungrove/monorepo log --oneline -20)",
+      "mcp__gitnexus__context",
+      "mcp__gitnexus__query",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm --filter @lam-thinh-ecommerce/api test)",
+      "Bash(git stash:*)",
+      "mcp__gitnexus__impact",
+      "Bash(claude mcp:*)",
+      "Bash(pnpm:*)",
+      "Bash(npx jest:*)"
+    ]
+  }
+}

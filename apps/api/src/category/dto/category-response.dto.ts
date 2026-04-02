@@ -37,17 +37,6 @@ export class CategoryResponseDto {
   slug: string;
 
   /**
-   * The path to the category's logo.
-   */
-  @ApiPropertyOptional({
-    example: 'categories/oil.png',
-    description: "The path to the category's logo.",
-    nullable: true,
-  })
-  @Expose()
-  logoPath: string | null;
-
-  /**
    * The order in which the category is displayed.
    */
   @ApiProperty({
@@ -56,6 +45,27 @@ export class CategoryResponseDto {
   })
   @Expose()
   displayOrder: number;
+
+  /**
+   * The secure URL of the category image.
+   */
+  @ApiPropertyOptional({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg',
+    description: 'The secure URL of the category image.',
+  })
+  @Expose()
+  imageUrl?: string | null;
+
+  /**
+   * The public ID of the image in Cloudinary.
+   */
+  @ApiPropertyOptional({
+    example: 'uploads/category/uuid/image-id',
+    description: 'The public ID of the image in Cloudinary.',
+  })
+  @Expose()
+  imagePublicId?: string | null;
 
   /**
    * The children of this category.

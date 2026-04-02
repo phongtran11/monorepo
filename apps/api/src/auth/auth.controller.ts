@@ -20,7 +20,13 @@ import {
 } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
-import { LoginDto, ProfileDto, RegisterDto, TokenDto } from './dto';
+import {
+  LoginDto,
+  LoginResponseDto,
+  ProfileDto,
+  RegisterDto,
+  TokenDto,
+} from './dto';
 import { JwtAuthGuard, JwtRefreshAuthGuard } from './guard';
 import type { AuthRequest, RefreshAuthRequest } from './jwt.type';
 
@@ -63,15 +69,16 @@ export class AuthController {
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: ApiResponseOf(TokenDto) })
+  @ApiOkResponse({ type: ApiResponseOf(LoginResponseDto) })
   async login(
     @Body() dto: LoginDto,
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
-  ): Promise<ApiResponseDto<TokenDto>> {
+    @Request() req: AuthRequest,
+  ): Promise<ApiResponseDto<LoginResponseDto>> {
     const data = await this.authService.login(dto, ip, userAgent);
 
-    return ApiResponseDto.success(data);
+    return ApiResponseDto.success({ ...data, user: req.user });
   }
 
   /**

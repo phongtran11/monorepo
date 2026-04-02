@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Exclude, Expose } from 'class-transformer';
 
 /**
  * Data transfer object for Cloudinary upload response.
  */
+@Exclude()
 export class UploadResponseDto {
   /**
    * The public ID of the uploaded image on Cloudinary.
@@ -11,6 +13,7 @@ export class UploadResponseDto {
     description: 'The public ID of the uploaded image on Cloudinary.',
     example: 'uploads/abc123xyz',
   })
+  @Expose()
   publicId: string;
 
   /**
@@ -20,6 +23,7 @@ export class UploadResponseDto {
     description: 'The secure HTTPS URL for accessing the uploaded image.',
     example: 'https://res.cloudinary.com/.../image/upload/...',
   })
+  @Expose()
   url: string;
 
   /**
@@ -29,6 +33,7 @@ export class UploadResponseDto {
     description: 'The width of the uploaded image in pixels.',
     example: 1920,
   })
+  @Expose()
   width: number;
 
   /**
@@ -38,6 +43,7 @@ export class UploadResponseDto {
     description: 'The height of the uploaded image in pixels.',
     example: 1080,
   })
+  @Expose()
   height: number;
 
   /**
@@ -47,5 +53,6 @@ export class UploadResponseDto {
     description: 'The format of the uploaded image (e.g., jpg, png).',
     example: 'jpg',
   })
+  @Expose()
   format: string;
 }

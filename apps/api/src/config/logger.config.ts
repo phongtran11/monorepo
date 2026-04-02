@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { registerAs } from '@nestjs/config';
 import { Params } from 'nestjs-pino';
 
+export const LOGGER_CONFIG_TOKEN = 'logger';
+
 /**
  * Logger configuration object.
  * Configures nestjs-pino with custom settings for request tracking and pretty-printing.
@@ -32,3 +34,5 @@ export const loggerConfig = registerAs(
     forRoutes: ['{*path}'],
   }),
 );
+
+export type LoggerConfig = ReturnType<typeof loggerConfig>;

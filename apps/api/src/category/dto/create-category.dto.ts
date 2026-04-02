@@ -24,18 +24,6 @@ export class CreateCategoryDto {
   name: string;
 
   /**
-   * The path to the category's logo.
-   */
-  @ApiPropertyOptional({
-    example: 'categories/oil.png',
-    description: "The path to the category's logo.",
-    nullable: true,
-  })
-  @IsString()
-  @IsOptional()
-  logoPath?: string | null;
-
-  /**
    * The order in which the category is displayed.
    */
   @ApiPropertyOptional({
@@ -56,5 +44,18 @@ export class CreateCategoryDto {
   })
   @IsUUID()
   @IsOptional()
-  parentId?: string;
+  parentId?: string | null;
+
+  /**
+   * The temporary upload ID for the category image.
+   * If provided, the image will be attached to the category upon creation.
+   * This ensures atomicity - either both category and image are created, or neither.
+   */
+  @ApiPropertyOptional({
+    example: 'temp-upload-id',
+    description: 'The temporary upload ID for the category image.',
+  })
+  @IsString()
+  @IsOptional()
+  imageId?: string;
 }

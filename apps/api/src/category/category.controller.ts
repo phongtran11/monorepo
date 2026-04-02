@@ -1,5 +1,13 @@
 import { JwtAuthGuard, PermissionsGuard } from '@api/auth/guard';
+import type { AuthUser } from '@api/auth/jwt.type';
+import {
+  CategoryResponseDto,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from '@api/category/dto';
+import { CategoryService } from '@api/category/services/category.service';
 import { ApiResponseDto, ApiResponseOf, Permissions } from '@api/common';
+import { CurrentUser } from '@api/common/decorator';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -20,13 +28,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
-
-import { CategoryService } from './category.service';
-import {
-  CategoryResponseDto,
-  CreateCategoryDto,
-  UpdateCategoryDto,
-} from './dto';
 
 /**
  * Controller for managing categories.
@@ -59,8 +60,10 @@ export class CategoryController {
 
   /**
    * Creates a new category.
+   * If imageId is provided, the image will be attached atomically.
    *
    * @param dto - The data to create the category.
+   * @param user - The authenticated user.
    * @returns The newly created category.
    */
   @Post()
@@ -70,8 +73,9 @@ export class CategoryController {
   @ApiCreatedResponse({ type: ApiResponseOf(CategoryResponseDto) })
   async create(
     @Body() dto: CreateCategoryDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
-    const category = await this.categoryService.create(dto);
+    const category = await this.categoryService.create(dto, user.id);
     return ApiResponseDto.success(
       plainToInstance(CategoryResponseDto, category),
     );
@@ -82,6 +86,7 @@ export class CategoryController {
    *
    * @param id - The unique identifier of the category to update.
    * @param dto - The updated data.
+   * @param user - The authenticated user.
    * @returns The updated category.
    */
   @Patch(':id')
@@ -92,8 +97,9 @@ export class CategoryController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResponseDto>> {
-    const category = await this.categoryService.update(id, dto);
+    const category = await this.categoryService.update(id, dto, user.id);
     return ApiResponseDto.success(
       plainToInstance(CategoryResponseDto, category),
     );
