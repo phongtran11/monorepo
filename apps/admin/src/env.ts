@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 export const env = createEnv({
   server: {
-    SERVER_URL: z.string().url().optional(),
+    SERVER_URL: z.url().optional(),
+    LOG_LEVEL: z
+      .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+      .optional()
+      .default('debug'),
   },
 
   /**
