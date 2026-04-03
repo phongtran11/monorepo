@@ -1,5 +1,5 @@
 import { JwtAuthGuard } from '@api/auth/guard';
-import type { AuthRequest, AuthUser } from '@api/auth/jwt.type';
+import type { AuthUser } from '@api/auth/jwt.type';
 import { TempUploadResponseDto } from '@api/cloudinary/dto';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
 import { CurrentUser } from '@api/common';
@@ -9,7 +9,6 @@ import {
   Delete,
   Param,
   Post,
-  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -23,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
+import * as multer from 'multer';
 
 /**
  * Controller handling temporary image uploads.

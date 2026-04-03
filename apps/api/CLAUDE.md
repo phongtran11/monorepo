@@ -5,6 +5,7 @@ Context for the NestJS backend (`apps/api`).
 ## Architecture
 
 **Module Organization:**
+
 - Feature-based modules (`auth`, `user`, `category`, etc.)
 - Group related files into subfolders when >2 files of same type: `dto/`, `entities/`, `repositories/`, `services/`, `guard/`, `strategy/`
 - Global app bootstrap centralized in `src/common/factory/app.factory.ts`
@@ -12,6 +13,7 @@ Context for the NestJS backend (`apps/api`).
 ## Key Patterns
 
 1. **Custom Repository Pattern**: Repositories extend TypeORM `Repository<T>`
+
    ```typescript
    @Injectable()
    export class UserRepository extends Repository<User> {
@@ -22,6 +24,7 @@ Context for the NestJS backend (`apps/api`).
    ```
 
 2. **Response Envelope**: All API responses use `ApiResponseDto<T>`
+
    ```typescript
    return ApiResponseDto.success(data);
    ```
@@ -29,6 +32,7 @@ Context for the NestJS backend (`apps/api`).
 3. **DTO Validation**: Use `class-validator` decorators for request validation
 
 4. **Response Serialization**: Use `class-transformer` with `@Exclude()` at class level and `@Expose()` on fields
+
    ```typescript
    return ApiResponseDto.success(
      plainToInstance(CategoryResponseDto, categories),
@@ -74,6 +78,7 @@ Context for the NestJS backend (`apps/api`).
 
 3. **TypeORM Entities**: Explicitly define TypeScript types for all columns
    - **CRITICAL**: If `@Column` has `nullable: true`, TypeScript type MUST include `| null`
+
    ```typescript
    @Column({ type: 'varchar', length: 255, nullable: true })
    fullName: string | null;  // ← Must include | null

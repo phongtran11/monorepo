@@ -1,9 +1,8 @@
 import { CategoryController } from '@api/category/category.controller';
 import { CategoryService } from '@api/category/services/category.service';
 import { ApiResponseDto } from '@api/common/dto/api-response.dto';
-import { Test, TestingModule } from '@nestjs/testing';
-
 import { AccountStatus, Role } from '@lam-thinh-ecommerce/shared';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import type { AuthUser } from '../auth/jwt.type';
 import type { Category } from './entities/category.entity';

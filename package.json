@@ -8,12 +8,11 @@
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "debug:api": "pnpm --filter @lam-thinh-ecommerce/api start:debug",
-    "dev": "pnpm -r --parallel run dev",
     "dev:admin": "pnpm --filter @lam-thinh-ecommerce/admin dev",
     "dev:web": "pnpm --filter @lam-thinh-ecommerce/web dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
     "dev:shared": "pnpm --filter @lam-thinh-ecommerce/shared dev",
-    "dev:api-and-admin": "pnpm -r --parallel --filter @lam-thinh-ecommerce/admin --filter @lam-thinh-ecommerce/api run dev",
+    "dev:api-and-admin": "pnpm -r --parallel --filter @lam-thinh-ecommerce/admin --filter @lam-thinh-ecommerce/api --filter @lam-thinh-ecommerce/shared run dev",
     "build": "pnpm -r run build",
     "build:admin": "pnpm --filter @lam-thinh-ecommerce/admin build",
     "build:web": "pnpm --filter @lam-thinh-ecommerce/web build",
@@ -21,7 +20,8 @@
     "build:shared": "pnpm --filter @lam-thinh-ecommerce/shared build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check": "pnpm -r run check"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

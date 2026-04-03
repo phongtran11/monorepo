@@ -13,11 +13,7 @@ import { DataSource } from 'typeorm';
 import { Category } from '../entities/category.entity';
 
 jest.mock('@lam-thinh-ecommerce/shared', () => ({
-  slugify: jest.fn((text: string) =>
-    text
-      .toLowerCase()
-      .replace(/\s+/g, '-'),
-  ),
+  slugify: jest.fn((text: string) => text.toLowerCase().replace(/\s+/g, '-')),
   formatYearMonth: jest.fn(() => '2026-03'),
 }));
 
@@ -40,9 +36,14 @@ const makeCategory = (overrides: Partial<Category> = {}): Category =>
 describe('CategoryService', () => {
   let service: CategoryService;
   let categoryRepository: jest.Mocked<
-    Pick<CategoryRepository, 'findTrees' | 'findOne' | 'softRemove' | 'findDescendants'>
+    Pick<
+      CategoryRepository,
+      'findTrees' | 'findOne' | 'softRemove' | 'findDescendants'
+    >
   >;
-  let tempUploadService: jest.Mocked<Pick<TempUploadService, 'consumeTempMeta'>>;
+  let tempUploadService: jest.Mocked<
+    Pick<TempUploadService, 'consumeTempMeta'>
+  >;
   let cloudinaryService: jest.Mocked<
     Pick<CloudinaryService, 'moveToPermanent' | 'deleteAsset'>
   >;
@@ -61,9 +62,11 @@ describe('CategoryService', () => {
       save: jest.fn(),
     };
 
-    mockTransaction = jest.fn().mockImplementation((cb) =>
-      cb({ getRepository: jest.fn().mockReturnValue(txRepo) }),
-    );
+    mockTransaction = jest
+      .fn()
+      .mockImplementation((cb) =>
+        cb({ getRepository: jest.fn().mockReturnValue(txRepo) }),
+      );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -116,7 +119,10 @@ describe('CategoryService', () => {
     it('should return categories sorted by displayOrder', async () => {
       const cat1 = makeCategory({ id: '1', displayOrder: 2 });
       const cat2 = makeCategory({ id: '2', displayOrder: 1 });
-      (categoryRepository.findTrees as jest.Mock).mockResolvedValue([cat1, cat2]);
+      (categoryRepository.findTrees as jest.Mock).mockResolvedValue([
+        cat1,
+        cat2,
+      ]);
 
       const result = await service.findAllTree();
 
@@ -127,7 +133,11 @@ describe('CategoryService', () => {
     it('should sort children recursively', async () => {
       const child1 = makeCategory({ id: 'c1', displayOrder: 2 });
       const child2 = makeCategory({ id: 'c2', displayOrder: 0 });
-      const parent = makeCategory({ id: 'p1', displayOrder: 0, children: [child1, child2] });
+      const parent = makeCategory({
+        id: 'p1',
+        displayOrder: 0,
+        children: [child1, child2],
+      });
       (categoryRepository.findTrees as jest.Mock).mockResolvedValue([parent]);
 
       const result = await service.findAllTree();
@@ -165,7 +175,9 @@ describe('CategoryService', () => {
     it('should throw NotFoundException when category does not exist', async () => {
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -185,7 +197,11 @@ describe('CategoryService', () => {
 
       expect(result).toBe(saved);
       expect(txRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Test Category', imagePublicId: null, imageUrl: null }),
+        expect.objectContaining({
+          name: 'Test Category',
+          imagePublicId: null,
+          imageUrl: null,
+        }),
       );
     });
 
@@ -202,7 +218,9 @@ describe('CategoryService', () => {
       const result = await service.create(dto, 'user-id');
 
       expect(result).toBe(saved);
-      expect(txRepo.findOne).toHaveBeenCalledWith({ where: { id: 'parent-uuid' } });
+      expect(txRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'parent-uuid' },
+      });
     });
 
     it('should create a category with an image', async () => {
@@ -225,7 +243,10 @@ describe('CategoryService', () => {
 
       const result = await service.create(dto, 'user-id');
 
-      expect(tempUploadService.consumeTempMeta).toHaveBeenCalledWith('temp-image-id', 'user-id');
+      expect(tempUploadService.consumeTempMeta).toHaveBeenCalledWith(
+        'temp-image-id',
+        'user-id',
+      );
       expect(cloudinaryService.moveToPermanent).toHaveBeenCalledWith(
         'temp-public-id',
         'uploads/category/2026-03',
@@ -241,9 +262,13 @@ describe('CategoryService', () => {
 
     it('should throw ConflictException when slug already exists', async () => {
       const dto = { name: 'Existing Category' };
-      (categoryRepository.findOne as jest.Mock).mockResolvedValue(makeCategory());
+      (categoryRepository.findOne as jest.Mock).mockResolvedValue(
+        makeCategory(),
+      );
 
-      await expect(service.create(dto, 'user-id')).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, 'user-id')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw NotFoundException when parent does not exist', async () => {
@@ -253,7 +278,9 @@ describe('CategoryService', () => {
       txRepo.create.mockReturnValue(makeCategory());
       txRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.create(dto, 'user-id')).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto, 'user-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should rollback cloudinary image when DB transaction fails', async () => {
@@ -272,7 +299,9 @@ describe('CategoryService', () => {
       (cloudinaryService.deleteAsset as jest.Mock).mockResolvedValue(undefined);
 
       await expect(service.create(dto, 'user-id')).rejects.toThrow('DB error');
-      expect(cloudinaryService.deleteAsset).toHaveBeenCalledWith('perm-public-id');
+      expect(cloudinaryService.deleteAsset).toHaveBeenCalledWith(
+        'perm-public-id',
+      );
     });
 
     it('should NOT call deleteAsset when no image and DB fails', async () => {
@@ -293,7 +322,9 @@ describe('CategoryService', () => {
       txRepo.create.mockReturnValue(makeCategory());
       txRepo.save.mockRejectedValue({ code: '23505' });
 
-      await expect(service.create(dto, 'user-id')).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, 'user-id')).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -338,14 +369,19 @@ describe('CategoryService', () => {
     it('should NOT throw when new slug belongs to the same category', async () => {
       const dto = { name: 'Different Name' };
       // slug check finds the same category (id matches) → not a conflict
-      const sameCategory = makeCategory({ id: 'cat-id', slug: 'different-name' });
+      const sameCategory = makeCategory({
+        id: 'cat-id',
+        slug: 'different-name',
+      });
 
       txRepo.findOne
         .mockResolvedValueOnce({ ...baseCategory })
         .mockResolvedValueOnce(sameCategory);
       txRepo.save.mockResolvedValue(sameCategory);
 
-      await expect(service.update('cat-id', dto, 'user-id')).resolves.not.toThrow();
+      await expect(
+        service.update('cat-id', dto, 'user-id'),
+      ).resolves.not.toThrow();
     });
 
     it('should replace image and soft-delete the old one post-transaction', async () => {
@@ -359,12 +395,16 @@ describe('CategoryService', () => {
         secureUrl: 'https://new-image.com',
       });
       txRepo.findOne.mockResolvedValueOnce({ ...baseCategory });
-      txRepo.save.mockResolvedValue(makeCategory({ imagePublicId: 'new-perm-id' }));
+      txRepo.save.mockResolvedValue(
+        makeCategory({ imagePublicId: 'new-perm-id' }),
+      );
       (cloudinaryService.deleteAsset as jest.Mock).mockResolvedValue(undefined);
 
       await service.update('cat-id', dto, 'user-id');
 
-      expect(cloudinaryService.deleteAsset).toHaveBeenCalledWith('old-public-id');
+      expect(cloudinaryService.deleteAsset).toHaveBeenCalledWith(
+        'old-public-id',
+      );
     });
 
     it('should set parent to null when parentId is null', async () => {
@@ -400,27 +440,34 @@ describe('CategoryService', () => {
     it('should throw NotFoundException when category does not exist', async () => {
       txRepo.findOne.mockResolvedValueOnce(null);
 
-      await expect(service.update('non-existent', {}, 'user-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('non-existent', {}, 'user-id'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException when new slug is taken by another category', async () => {
       const dto = { name: 'Taken Name' };
-      const otherCategory = makeCategory({ id: 'other-id', slug: 'taken-name' });
+      const otherCategory = makeCategory({
+        id: 'other-id',
+        slug: 'taken-name',
+      });
 
       txRepo.findOne
         .mockResolvedValueOnce({ ...baseCategory })
         .mockResolvedValueOnce(otherCategory);
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(ConflictException);
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw BadRequestException when setting parent to self', async () => {
       const dto = { parentId: 'cat-id' };
       txRepo.findOne.mockResolvedValueOnce({ ...baseCategory, id: 'cat-id' });
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(BadRequestException);
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when new parent does not exist', async () => {
@@ -430,7 +477,9 @@ describe('CategoryService', () => {
         .mockResolvedValueOnce({ ...baseCategory })
         .mockResolvedValueOnce(null); // parent not found
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(NotFoundException);
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when new parent is a descendant', async () => {
@@ -440,9 +489,13 @@ describe('CategoryService', () => {
       txRepo.findOne
         .mockResolvedValueOnce({ ...baseCategory })
         .mockResolvedValueOnce(descendant); // parent exists
-      (categoryRepository.findDescendants as jest.Mock).mockResolvedValue([descendant]);
+      (categoryRepository.findDescendants as jest.Mock).mockResolvedValue([
+        descendant,
+      ]);
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(BadRequestException);
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should rollback new cloudinary image when DB transaction fails', async () => {
@@ -459,7 +512,9 @@ describe('CategoryService', () => {
       txRepo.save.mockRejectedValue(new Error('DB error'));
       (cloudinaryService.deleteAsset as jest.Mock).mockResolvedValue(undefined);
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow('DB error');
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        'DB error',
+      );
       expect(cloudinaryService.deleteAsset).toHaveBeenCalledWith('new-perm-id');
     });
 
@@ -471,7 +526,9 @@ describe('CategoryService', () => {
         .mockResolvedValueOnce(null);
       txRepo.save.mockRejectedValue({ code: '23505' });
 
-      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(ConflictException);
+      await expect(service.update('cat-id', dto, 'user-id')).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -491,7 +548,9 @@ describe('CategoryService', () => {
     it('should throw NotFoundException when category does not exist', async () => {
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.remove('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException when category has children', async () => {

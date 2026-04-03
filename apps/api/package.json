@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "check": "prettier --write . && eslint --fix",
     "start": "nest start",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -99,5 +100,6 @@
     "moduleNameMapper": {
       "^@api/(.*)$": "<rootDir>/$1"
     }
-  }
+  },
+  "packageManager": "pnpm@10.12.4"
 }

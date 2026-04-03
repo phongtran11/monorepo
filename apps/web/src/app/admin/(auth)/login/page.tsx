@@ -13,7 +13,12 @@ import {
 import { Input } from '@web/components/atoms/input';
 import { Alert, AlertDescription } from '@web/components/atoms/alert';
 import { Spinner } from '@web/components/atoms/spinner';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@web/components/atoms/field';
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@web/components/atoms/field';
 
 import { useLoginForm } from './_hooks/use-login-form';
 
@@ -32,10 +37,7 @@ export default function AdminLoginPage() {
         </CardHeader>
 
         <CardContent>
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-4"
-          >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {serverError && (
               <Alert variant="destructive">
                 <CircleAlert />
