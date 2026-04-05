@@ -17,7 +17,8 @@
   "scripts": {
     "build": "dts-bundle-generator -o dist/index.d.ts src/index.ts && rolldown -c rolldown.config.ts",
     "dev": "dts-bundle-generator -o dist/index.d.ts src/index.ts && rolldown -c rolldown.config.ts --watch",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check": "prettier --write . && eslint --fix"
   },
   "keywords": [],
   "author": "",
