@@ -26,16 +26,18 @@ export async function serverFetch<T>(
   const method = options.method ?? 'GET';
   const start = performance.now();
 
-  logger.info({ method, url }, '--> %s %s', method, path);
-
   try {
+    const isFormData = options.body instanceof FormData;
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers: isFormData
+        ? { ...options.headers }
+        : { 'Content-Type': 'application/json', ...options.headers },
+      body: isFormData
+        ? (options.body as FormData)
+        : options.body
+          ? JSON.stringify(options.body)
+          : undefined,
     });
 
     const duration = Math.round(performance.now() - start);
@@ -50,7 +52,7 @@ export async function serverFetch<T>(
           duration,
           error: data.error ?? data.message,
         },
-        '<-- %s %s %d (%dms)',
+        '%s %s %d (%dms)',
         method,
         path,
         response.status,
@@ -61,7 +63,7 @@ export async function serverFetch<T>(
 
     logger.info(
       { method, url, status: response.status, duration },
-      '<-- %s %s %d (%dms)',
+      '%s %s %d (%dms)',
       method,
       path,
       response.status,
@@ -74,7 +76,7 @@ export async function serverFetch<T>(
       const duration = Math.round(performance.now() - start);
       logger.error(
         { method, url, duration, err: error.message },
-        '<-- %s %s NETWORK_ERROR (%dms)',
+        '%s %s NETWORK_ERROR (%dms)',
         method,
         path,
         duration,

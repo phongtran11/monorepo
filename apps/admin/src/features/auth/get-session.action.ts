@@ -2,15 +2,8 @@ import { createServerFn } from '@tanstack/react-start';
 import { getCookie, setCookie } from '@tanstack/react-start/server';
 
 import { logger } from '@admin/lib/server/logger';
-import { serverFetch } from '@admin/lib/server/fetch';
-import type { Session, UserProfile } from './session.type';
-
-interface TokenData {
-  accessToken: string;
-  accessTokenExpiresIn: number;
-  refreshToken: string;
-  refreshTokenExpiresIn: number;
-}
+import { fetchProfile, silentRefresh } from '@admin/lib/server/auth';
+import type { Session } from './session.type';
 
 const cookieBase = {
   httpOnly: true,
@@ -18,29 +11,6 @@ const cookieBase = {
   sameSite: 'lax' as const,
   path: '/',
 };
-
-async function fetchProfile(accessToken: string): Promise<UserProfile | null> {
-  try {
-    const result = await serverFetch<UserProfile>('/auth/profile', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    return result.data;
-  } catch {
-    return null;
-  }
-}
-
-async function silentRefresh(refreshToken: string): Promise<TokenData | null> {
-  try {
-    const result = await serverFetch<TokenData>('/auth/refresh', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${refreshToken}` },
-    });
-    return result.data;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Returns the current session by validating the access token cookie.
@@ -60,7 +30,7 @@ export const getSessionAction = createServerFn({ method: 'GET' }).handler(
 
     if (!refreshToken) return null;
 
-    logger.info('Access token missing or expired — attempting silent refresh');
+    logger.debug('Access token missing or expired — attempting silent refresh');
 
     const tokens = await silentRefresh(refreshToken);
 
@@ -85,7 +55,7 @@ export const getSessionAction = createServerFn({ method: 'GET' }).handler(
       return null;
     }
 
-    logger.info({ userId: user.id }, 'Silent refresh successful');
+    logger.debug({ userId: user.id }, 'Silent refresh successful');
     return { user };
   },
 );

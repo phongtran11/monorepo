@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getCookie } from '@tanstack/react-start/server';
 import { z } from 'zod';
 
+import { authMiddleware } from '@admin/lib/server/middleware/auth.middleware';
 import { serverFetch } from '@admin/lib/server/fetch';
 
 import type { CategoryResponseDto } from '../category.type';
@@ -18,13 +18,13 @@ const updateCategoryInput = z.object({
  * Updates an existing category by ID. Requires authentication.
  */
 export const updateCategoryAction = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .inputValidator(updateCategoryInput)
-  .handler(async ({ data }): Promise<CategoryResponseDto> => {
+  .handler(async ({ context, data }): Promise<CategoryResponseDto> => {
     const { id, ...body } = data;
-    const accessToken = getCookie('access_token');
     const result = await serverFetch<CategoryResponseDto>(`/categories/${id}`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${context.accessToken}` },
       body,
     });
     return result.data;

@@ -9,12 +9,6 @@ interface LoginData {
   accessTokenExpiresIn: number;
   refreshToken: string;
   refreshTokenExpiresIn: number;
-  user: {
-    id: string;
-    email: string;
-    role: number;
-    status: number;
-  };
 }
 
 export const loginAction = createServerFn({ method: 'POST' })
@@ -30,7 +24,6 @@ export const loginAction = createServerFn({ method: 'POST' })
       accessTokenExpiresIn,
       refreshToken,
       refreshTokenExpiresIn,
-      user,
     } = result.data;
 
     const cookieBase = {
@@ -50,5 +43,5 @@ export const loginAction = createServerFn({ method: 'POST' })
       maxAge: refreshTokenExpiresIn,
     });
 
-    return { user };
+    return true;
   });

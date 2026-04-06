@@ -26,5 +26,11 @@
     "prettier": "^3.4.2",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.20.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
   }
 }

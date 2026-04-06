@@ -46,6 +46,7 @@ export function CategoryFormDialog({
     isUploading,
     tempImageUrl,
     handleFileChange,
+    handleRemoveImage,
     handleClose,
     isSubmitting,
   } = useCategoryForm({
@@ -70,7 +71,7 @@ export function CategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent aria-describedby="" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {category ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
@@ -170,17 +171,18 @@ export function CategoryFormDialog({
                     alt="Preview"
                     className="max-h-32 rounded-md object-contain"
                   />
-                  <button
+                  <Button
+                    variant="destructive"
+                    className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2"
+                    size="icon-xs"
                     type="button"
-                    className="bg-destructive text-destructive-foreground absolute -right-2 -top-2 rounded-full p-0.5"
                     onClick={(e) => {
                       e.stopPropagation();
-                      form.setValue('imageId', null);
-                      // Note: handleFileChange with null-like input is handled by removing preview
+                      handleRemoveImage();
                     }}
                   >
                     <X className="size-3" />
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 py-2">

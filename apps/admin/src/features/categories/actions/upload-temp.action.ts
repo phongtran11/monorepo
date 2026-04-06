@@ -1,8 +1,10 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getCookie } from '@tanstack/react-start/server';
 import { z } from 'zod';
 
+import { authMiddleware } from '@admin/lib/server/middleware/auth.middleware';
+
 import type { TempUploadResponse } from '../category.type';
+import { serverFetch } from '@admin/lib/server/fetch';
 
 const API_BASE_URL = 'https://monorepo-production-3759.up.railway.app/api/v1';
 
@@ -17,28 +19,21 @@ const uploadTempInput = z.object({
  * Accepts base64-encoded file data and reconstructs a multipart/form-data request.
  */
 export const uploadTempAction = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .inputValidator(uploadTempInput)
-  .handler(async ({ data }): Promise<TempUploadResponse> => {
-    const accessToken = getCookie('access_token');
-
+  .handler(async ({ context, data }): Promise<TempUploadResponse> => {
     const buffer = Buffer.from(data.fileData, 'base64');
     const blob = new Blob([buffer], { type: data.fileType });
     const formData = new FormData();
     formData.append('file', blob, data.fileName);
 
-    const response = await fetch(`${API_BASE_URL}/upload/temp`, {
+    const response = await serverFetch<TempUploadResponse>(`/upload/temp`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${context.accessToken}`,
       },
       body: formData,
     });
 
-    const json = await response.json();
-
-    if (!response.ok || !json.success) {
-      throw new Error(json.message ?? 'Upload failed');
-    }
-
-    return json.data as TempUploadResponse;
+    return response.data;
   });

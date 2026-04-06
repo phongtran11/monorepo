@@ -141,13 +141,13 @@ export function AppHeader({ user }: AppHeaderProps) {
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <User className="mr-2 size-4" />
-                Profile
+                Tài khoản
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 size-4" />
-              Log out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

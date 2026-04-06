@@ -104,6 +104,19 @@ export function useCategoryForm({
     }
   });
 
+  const handleRemoveImage = useCallback(async () => {
+    if (pendingTempId.current) {
+      try {
+        await cancelUploadAction({ data: { tempId: pendingTempId.current } });
+      } catch {
+        // ignore
+      }
+      pendingTempId.current = null;
+    }
+    setTempImageUrl(null);
+    form.setValue('imageId', null);
+  }, [form]);
+
   const handleClose = useCallback(async () => {
     if (pendingTempId.current) {
       try {
@@ -125,6 +138,7 @@ export function useCategoryForm({
     isUploading,
     tempImageUrl,
     handleFileChange,
+    handleRemoveImage,
     handleClose,
     isSubmitting: form.formState.isSubmitting,
   };
