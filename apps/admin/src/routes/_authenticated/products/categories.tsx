@@ -36,7 +36,11 @@ function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryResponseDto | null>(null);
 
-  const { data: categories = [], isLoading, isError } = useQuery({
+  const {
+    data: categories = [],
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['categories'],
     queryFn: () => getCategoriesAction(),
   });

@@ -22,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import * as multer from 'multer';
 
 /**

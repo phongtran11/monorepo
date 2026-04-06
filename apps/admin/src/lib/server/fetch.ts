@@ -1,7 +1,6 @@
 import { logger } from '@admin/lib/server/logger';
 
-const API_BASE_URL =
-  'https://monorepo-production-3759.up.railway.app/api/v1';
+const API_BASE_URL = 'https://monorepo-production-3759.up.railway.app/api/v1';
 
 interface ServerFetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
@@ -44,14 +43,20 @@ export async function serverFetch<T>(
 
     if (!response.ok || !data.success) {
       logger.error(
-        { method, url, status: response.status, duration, error: data.error ?? data.message },
+        {
+          method,
+          url,
+          status: response.status,
+          duration,
+          error: data.error ?? data.message,
+        },
         '<-- %s %s %d (%dms)',
         method,
         path,
         response.status,
         duration,
       );
-      throw new Error(data.message ?? `Request failed with status ${response.status}`);
+      throw new Error(data.message);
     }
 
     logger.info(

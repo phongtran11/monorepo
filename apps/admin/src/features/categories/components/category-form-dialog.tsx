@@ -222,9 +222,7 @@ export function CategoryFormDialog({
               Hủy
             </Button>
             <Button type="submit" disabled={isSubmitting || isUploading}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              )}
+              {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
               {category ? 'Lưu thay đổi' : 'Tạo danh mục'}
             </Button>
           </DialogFooter>

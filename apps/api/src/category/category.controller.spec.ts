@@ -7,8 +7,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { AuthUser } from '../auth/jwt.type';
 import type { Category } from './entities/category.entity';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 jest.mock('class-transformer', () => ({
   ...jest.requireActual('class-transformer'),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   plainToInstance: jest.fn((_cls, data) => data),
 }));
 
@@ -77,6 +79,7 @@ describe('CategoryController', () => {
 
       const result = await controller.findAll();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.findAllTree).toHaveBeenCalledTimes(1);
       expect(result).toBeInstanceOf(ApiResponseDto);
       expect(result.success).toBe(true);
@@ -102,8 +105,9 @@ describe('CategoryController', () => {
       const created = makeCategory({ id: 'new-id', name: 'New Category' });
       service.create.mockResolvedValue(created);
 
-      const result = await controller.create(dto as any, mockUser);
+      const result = await controller.create(dto, mockUser);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.create).toHaveBeenCalledWith(dto, mockUser.id);
       expect(result).toBeInstanceOf(ApiResponseDto);
       expect(result.success).toBe(true);
@@ -120,8 +124,9 @@ describe('CategoryController', () => {
       const updated = makeCategory({ id: 'cat-uuid', name: 'Updated Name' });
       service.update.mockResolvedValue(updated);
 
-      const result = await controller.update('cat-uuid', dto as any, mockUser);
+      const result = await controller.update('cat-uuid', dto, mockUser);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.update).toHaveBeenCalledWith('cat-uuid', dto, mockUser.id);
       expect(result).toBeInstanceOf(ApiResponseDto);
       expect(result.success).toBe(true);
@@ -138,6 +143,7 @@ describe('CategoryController', () => {
 
       const result = await controller.remove('cat-uuid');
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(service.remove).toHaveBeenCalledWith('cat-uuid');
       expect(result).toBeInstanceOf(ApiResponseDto);
       expect(result.success).toBe(true);

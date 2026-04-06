@@ -62,11 +62,10 @@ describe('CategoryService', () => {
       save: jest.fn(),
     };
 
-    mockTransaction = jest
-      .fn()
-      .mockImplementation((cb) =>
-        cb({ getRepository: jest.fn().mockReturnValue(txRepo) }),
-      );
+    mockTransaction = jest.fn().mockImplementation((cb) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      cb({ getRepository: jest.fn().mockReturnValue(txRepo) }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
