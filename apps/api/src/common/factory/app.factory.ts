@@ -4,6 +4,8 @@ import {
   ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
+import compression from 'compression';
+import { Logger } from 'nestjs-pino';
 
 /**
  * Configures a NestJS application with standard global middleware, pipes, filters, and settings.
@@ -31,4 +33,10 @@ export function bootstrapApp(app: INestApplication) {
 
   // Global filters
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Compression
+  app.use(compression());
+
+  // Logger
+  app.useLogger(app.get(Logger));
 }

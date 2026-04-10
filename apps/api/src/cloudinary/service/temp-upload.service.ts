@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { RedisService } from '@api/common/redis/redis.service';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 /**
  * Metadata stored in Redis for a temporary upload.
@@ -23,6 +23,7 @@ export interface TempUploadMeta {
 export class TempUploadService {
   private readonly REDIS_PREFIX = 'temp_upload:';
   private readonly TTL_24H = 24 * 60 * 60;
+  private readonly logger = new Logger(TempUploadService.name);
 
   /**
    * Creates an instance of the TempUploadService.
@@ -43,6 +44,8 @@ export class TempUploadService {
    * @returns The tempId, tempUrl, and expiration time.
    */
   async saveTempMeta(userId: string, file: Express.Multer.File) {
+    this.logger.debug(`Saving temp meta for user ${userId}`);
+
     const { publicId, secureUrl } = await this.cloudinaryService.uploadToTemp(
       file.buffer,
       userId,
@@ -50,6 +53,8 @@ export class TempUploadService {
 
     const tempId = randomUUID();
     const meta: TempUploadMeta = { publicId, secureUrl, userId };
+
+    this.logger.debug(`Saving temp meta: ${JSON.stringify(meta)}`);
 
     await this.redisService.set(
       `${this.REDIS_PREFIX}${tempId}`,
@@ -85,6 +90,8 @@ export class TempUploadService {
 
     const meta = JSON.parse(data) as TempUploadMeta;
 
+    this.logger.debug(`Consuming temp meta: ${JSON.stringify(meta)}`);
+
     if (meta.userId !== userId) {
       throw new BadRequestException('Bạn không có quyền sử dụng mã upload này');
     }
@@ -108,6 +115,8 @@ export class TempUploadService {
     }
 
     const meta = JSON.parse(data) as TempUploadMeta;
+
+    this.logger.debug(`Canceling temp meta: ${JSON.stringify(meta)}`);
 
     if (meta.userId !== userId) {
       throw new BadRequestException('Bạn không có quyền hủy mã upload này');

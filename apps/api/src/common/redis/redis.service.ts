@@ -1,11 +1,12 @@
 import { RedisConfig } from '@api/config';
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
+  private readonly logger = new Logger(RedisService.name);
 
   constructor(private readonly configService: ConfigService) {
     const redisConf = this.configService.getOrThrow<RedisConfig>('redis');
@@ -21,6 +22,10 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    this.logger.debug(
+      `Setting key ${key} with value ${value} and TTL ${ttlSeconds}`,
+    );
+
     if (ttlSeconds) {
       await this.client.set(key, value, 'EX', ttlSeconds);
     } else {
@@ -29,10 +34,14 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async get(key: string): Promise<string | null> {
+    this.logger.debug(`Getting key ${key}`);
+
     return await this.client.get(key);
   }
 
   async del(key: string): Promise<void> {
+    this.logger.debug(`Deleting key ${key}`);
+
     await this.client.del(key);
   }
 

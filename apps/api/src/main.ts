@@ -4,7 +4,6 @@ import {
   NestExpressApplication,
 } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import compression from 'compression';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
@@ -23,11 +22,7 @@ async function bootstrap() {
     { bufferLogs: true },
   );
 
-  app.useLogger(app.get(Logger));
-
   bootstrapApp(app);
-
-  app.use(compression());
 
   // Swagger with Bearer auth
   const config = new DocumentBuilder()

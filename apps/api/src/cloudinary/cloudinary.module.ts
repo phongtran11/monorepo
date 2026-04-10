@@ -1,4 +1,3 @@
-import { CleanupScheduler } from '@api/cloudinary/cleanup.scheduler';
 import { CloudinaryProvider } from '@api/cloudinary/cloudinary.provider';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
@@ -14,12 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [ScheduleModule.forRoot(), RedisModule],
   controllers: [UploadController],
-  providers: [
-    CloudinaryProvider,
-    CloudinaryService,
-    TempUploadService,
-    CleanupScheduler,
-  ],
+  providers: [CloudinaryProvider, CloudinaryService, TempUploadService],
   exports: [CloudinaryProvider, CloudinaryService, TempUploadService],
 })
 export class CloudinaryModule {}
