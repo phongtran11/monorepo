@@ -8,6 +8,7 @@
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "debug:api": "pnpm --filter @lam-thinh-ecommerce/api start:debug",
+    "dev:all": "pnpm -r run dev",
     "dev:admin": "pnpm --filter @lam-thinh-ecommerce/admin dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
     "dev:shared": "pnpm --filter @lam-thinh-ecommerce/shared dev",
@@ -30,7 +31,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "lightningcss"
+      "lightningcss",
+      "sharp"
     ]
   }
 }

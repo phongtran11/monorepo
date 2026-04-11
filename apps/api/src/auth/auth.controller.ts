@@ -15,6 +15,7 @@ import {
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiHeaders,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -48,6 +49,15 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the authentication tokens.
    */
   @Post('register')
+  @ApiHeaders([
+    {
+      name: 'user-agent',
+      required: false,
+      schema: {
+        type: 'string',
+      },
+    },
+  ])
   @ApiCreatedResponse({ type: ApiResponseOf(TokenDto) })
   async register(
     @Body() dto: RegisterDto,
@@ -68,6 +78,15 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the authentication tokens.
    */
   @Post('login')
+  @ApiHeaders([
+    {
+      name: 'user-agent',
+      required: false,
+      schema: {
+        type: 'string',
+      },
+    },
+  ])
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ApiResponseOf(LoginResponseDto) })
   async login(
@@ -107,6 +126,15 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the new authentication tokens.
    */
   @Post('refresh')
+  @ApiHeaders([
+    {
+      name: 'user-agent',
+      required: false,
+      schema: {
+        type: 'string',
+      },
+    },
+  ])
   @ApiOkResponse({ type: ApiResponseOf(TokenDto) })
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
@@ -137,6 +165,15 @@ export class AuthController {
     type: ApiResponseDto,
     description: 'Successfully logged out',
   })
+  @ApiHeaders([
+    {
+      name: 'user-agent',
+      required: false,
+      schema: {
+        type: 'string',
+      },
+    },
+  ])
   @UseGuards(JwtRefreshAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)

@@ -16,6 +16,10 @@ export const RolePermissionsMap: Record<Role, Permission[]> = {
     Permission.READ_CATEGORIES,
     Permission.UPDATE_CATEGORY,
     Permission.DELETE_CATEGORY,
+    Permission.CREATE_PRODUCT,
+    Permission.READ_PRODUCTS,
+    Permission.UPDATE_PRODUCT,
+    Permission.DELETE_PRODUCT,
     Permission.MANAGE_SYSTEM,
   ],
   [Role.STAFF]: [
@@ -25,6 +29,10 @@ export const RolePermissionsMap: Record<Role, Permission[]> = {
     Permission.READ_CATEGORIES,
     Permission.UPDATE_CATEGORY,
     Permission.DELETE_CATEGORY,
+    Permission.CREATE_PRODUCT,
+    Permission.READ_PRODUCTS,
+    Permission.UPDATE_PRODUCT,
+    Permission.DELETE_PRODUCT,
   ],
-  [Role.CUSTOMER]: [Permission.READ_CATEGORIES],
+  [Role.CUSTOMER]: [Permission.READ_CATEGORIES, Permission.READ_PRODUCTS],
 };

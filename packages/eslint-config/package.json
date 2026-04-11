@@ -1,0 +1,18 @@
+{
+  "name": "@lam-thinh-ecommerce/eslint-config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "base.mjs",
+  "dependencies": {
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-simple-import-sort": "^12.1.1"
+  },
+  "peerDependencies": {
+    "@eslint/js": ">=9.0.0",
+    "eslint": ">=9.0.0",
+    "prettier": ">=3.0.0",
+    "typescript": ">=5.0.0",
+    "typescript-eslint": ">=8.0.0"
+  }
+}

@@ -6,6 +6,7 @@ import { AccountStatus } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,10 +14,18 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import ms from 'ms';
+import { DataSource, EntityManager, IsNull } from 'typeorm';
 
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  decryptReplayPayload,
+  encryptReplayPayload,
+} from './replay-payload.crypto';
+import { Session } from './session.entity';
 import { SessionRepository } from './session.repository';
+
+const REPLAY_GRACE_MS = 30_000;
 
 /**
  * Service providing authentication and authorization functionality.
@@ -24,21 +33,18 @@ import { SessionRepository } from './session.repository';
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<Env>,
     private readonly sessionRepository: SessionRepository,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
    * Registers a new user and generates authentication tokens.
-   *
-   * @param dto - The registration data.
-   * @param ip - (Optional) The IP address of the user.
-   * @param userAgent - (Optional) The user agent string of the user.
-   * @returns A promise that resolves to the generated authentication tokens.
-   * @throws ConflictException if the email already exists.
    */
   async register(dto: RegisterDto, ip?: string, userAgent?: string) {
     const existing = await this.userService.findByEmailWithDeleted(dto.email);
@@ -54,17 +60,11 @@ export class AuthService {
     });
     const user = await this.userService.create(dto.email, hashedPassword);
 
-    return this.generateTokens(user, ip, userAgent);
+    return this.issueRootSession(user, ip, userAgent);
   }
 
   /**
    * Authenticates a user and generates authentication tokens.
-   *
-   * @param dto - The login credentials.
-   * @param ip - (Optional) The IP address of the user.
-   * @param userAgent - (Optional) The user agent string of the user.
-   * @returns A promise that resolves to the generated authentication tokens.
-   * @throws UnauthorizedException if the user doesn't exist, is banned, or has incorrect credentials.
    */
   async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const user = await this.userService.findByEmail(dto.email);
@@ -87,22 +87,34 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
-    return this.generateTokens(user, ip, userAgent);
+    return this.issueRootSession(user, ip, userAgent);
   }
 
   /**
-   * Generates new access and refresh tokens for a user and saves the session.
-   *
-   * @param user - The user for whom to generate tokens.
-   * @param ip - (Optional) The user's IP address.
-   * @param userAgent - (Optional) The user's user agent string.
-   * @returns A promise that resolves to the access and refresh tokens with expiration times.
+   * Issues the first session of a new rotation chain (login/register).
+   * The session's chainId is set to its own id.
    */
-  private async generateTokens(
+  private async issueRootSession(
     user: User,
     ip?: string,
     userAgent?: string,
   ): Promise<TokenDto> {
+    const { tokens, session } = await this.buildTokens(user);
+    session.ip = ip ?? null;
+    session.userAgent = userAgent ?? null;
+    session.chainId = session.id;
+    await this.sessionRepository.save(session);
+    return tokens;
+  }
+
+  /**
+   * Pure computation: builds a JWT access/refresh pair and a Session entity
+   * (not yet persisted). Caller is responsible for setting chainId and
+   * saving the row within whatever transaction is appropriate.
+   */
+  private async buildTokens(
+    user: User,
+  ): Promise<{ tokens: TokenDto; session: Session }> {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -116,12 +128,13 @@ export class AuthService {
     });
 
     const jti = randomUUID();
-    const refreshTokenPayload = { ...payload, jti };
-
-    const refreshToken = this.jwtService.sign(refreshTokenPayload, {
-      secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRATION'),
-    });
+    const refreshToken = this.jwtService.sign(
+      { ...payload, jti },
+      {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.getOrThrow('JWT_REFRESH_EXPIRATION'),
+      },
+    );
 
     const hashedRefreshToken = await argon2.hash(refreshToken, {
       secret: Buffer.from(
@@ -129,7 +142,6 @@ export class AuthService {
       ),
     });
 
-    // parse expiration duration to save in db
     const expiresAt = new Date(
       Date.now() + ms(this.configService.getOrThrow('JWT_REFRESH_EXPIRATION')),
     );
@@ -138,37 +150,45 @@ export class AuthService {
       id: jti,
       userId: user.id,
       refreshToken: hashedRefreshToken,
-      ip,
-      userAgent,
       expiresAt,
+      rotatedAt: null,
+      replayPayload: null,
+      replayExpiresAt: null,
+      revokedAt: null,
     });
 
-    await this.sessionRepository.save(session);
-
     const accessTokenExpiresIn =
-      Number(ms(this.configService.getOrThrow('JWT_ACCESS_EXPIRATION'))) / 1000; // convert to seconds
+      Number(ms(this.configService.getOrThrow('JWT_ACCESS_EXPIRATION'))) / 1000;
     const refreshTokenExpiresIn =
       Number(ms(this.configService.getOrThrow('JWT_REFRESH_EXPIRATION'))) /
       1000;
 
-    return {
+    const tokens: TokenDto = {
       accessToken,
       accessTokenExpiresIn,
       refreshToken,
       refreshTokenExpiresIn,
     };
+
+    return { tokens, session };
   }
 
   /**
    * Refreshes the authentication tokens using a valid refresh token.
    *
-   * @param userId - The ID of the user.
-   * @param jti - The unique ID of the refresh token session.
-   * @param rawToken - The raw refresh token string.
-   * @param ip - (Optional) The new IP address.
-   * @param userAgent - (Optional) The new user agent string.
-   * @returns A promise that resolves to the new authentication tokens.
-   * @throws UnauthorizedException if the session is invalid, expired, or the user is banned.
+   * Implements single-use rotation with an idempotent replay window:
+   *   - First concurrent request rotates the session and stores the new
+   *     TokenDto encrypted in replay_payload.
+   *   - Subsequent requests arriving within REPLAY_GRACE_MS decrypt and
+   *     return the same payload, so all concurrent callers converge on one
+   *     new refresh token.
+   *   - Replays after the grace window are treated as reuse and revoke the
+   *     entire session chain.
+   *
+   * The entire flow runs inside a transaction with SELECT ... FOR UPDATE on
+   * the session row, so concurrent refreshes on the same session serialize
+   * cleanly: the first rotates, the rest see rotatedAt set and take the
+   * replay branch.
    */
   async refreshToken(
     userId: string,
@@ -176,54 +196,143 @@ export class AuthService {
     rawToken: string,
     ip?: string,
     userAgent?: string,
-  ) {
-    const session = await this.sessionRepository.findOne({
-      where: { id: jti, userId },
-    });
+  ): Promise<TokenDto> {
+    return this.dataSource.transaction(async (manager) => {
+      const session = await manager.findOne(Session, {
+        where: { id: jti, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!session || new Date() > session.expiresAt) {
-      if (session) {
-        await this.sessionRepository.remove(session);
+      if (!session) {
+        throw new UnauthorizedException(
+          'Phiên đăng nhập đã hết hạn hoặc không hợp lệ',
+        );
       }
-      throw new UnauthorizedException(
-        'Phiên đăng nhập đã hết hạn hoặc không hợp lệ',
-      );
-    }
 
-    const user = await this.userService.findById(userId);
-    if (!user || user.status === AccountStatus.BANNED) {
-      await this.sessionRepository.remove(session);
-      throw new UnauthorizedException('Tài khoản không tồn tại hoặc bị khoá');
-    }
+      if (session.revokedAt) {
+        this.logger.warn(
+          `Refresh attempted on revoked session ${jti} for user ${userId}`,
+        );
+        throw new UnauthorizedException('Phiên đăng nhập đã bị thu hồi');
+      }
 
-    const isTokenValid = await argon2.verify(session.refreshToken, rawToken, {
-      secret: Buffer.from(
-        this.configService.getOrThrow('PASSWORD_HASH_SECRET'),
-      ),
+      if (new Date() > session.expiresAt) {
+        throw new UnauthorizedException('Phiên đăng nhập đã hết hạn');
+      }
+
+      const isTokenValid = await argon2.verify(session.refreshToken, rawToken, {
+        secret: Buffer.from(
+          this.configService.getOrThrow('PASSWORD_HASH_SECRET'),
+        ),
+      });
+      if (!isTokenValid) {
+        throw new UnauthorizedException('Token không hợp lệ');
+      }
+
+      if (session.rotatedAt) {
+        return this.handleReplay(manager, session);
+      }
+
+      const user = await this.userService.findById(userId);
+      if (!user || user.status === AccountStatus.BANNED) {
+        await this.revokeChain(manager, session.chainId);
+        throw new UnauthorizedException('Tài khoản không tồn tại hoặc bị khoá');
+      }
+
+      return this.rotateSession(manager, session, user, ip, userAgent);
     });
-    if (!isTokenValid) {
-      throw new UnauthorizedException('Token không hợp lệ');
-    }
-
-    await this.sessionRepository.remove(session);
-
-    return this.generateTokens(user, ip, userAgent);
   }
 
   /**
-   * Logs out the user by removing their current session.
-   *
-   * @param userId - The ID of the user.
-   * @param jti - The unique ID of the session to remove.
-   * @returns A promise that resolves when the session is removed.
+   * Replay branch: the session has already been rotated. If we're still
+   * inside the grace window, return the stored payload. Otherwise the old
+   * token is being reused after its replacement took effect — treat as
+   * compromise and revoke the chain.
+   */
+  private async handleReplay(
+    manager: EntityManager,
+    session: Session,
+  ): Promise<TokenDto> {
+    const withinGrace =
+      session.replayExpiresAt !== null &&
+      new Date() < session.replayExpiresAt &&
+      session.replayPayload !== null;
+
+    if (!withinGrace) {
+      this.logger.warn(
+        `Refresh token reuse detected on session ${session.id} (chain ${session.chainId}); revoking chain`,
+      );
+      await this.revokeChain(manager, session.chainId);
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã bị thu hồi do phát hiện sử dụng lại token',
+      );
+    }
+
+    const secret = this.configService.getOrThrow<string>(
+      'PASSWORD_HASH_SECRET',
+    );
+    return decryptReplayPayload(session.replayPayload!, secret);
+  }
+
+  /**
+   * Fresh rotation branch: generate a new token pair, persist the new
+   * session as part of the same chain, and stamp the old session with the
+   * encrypted replay payload + grace deadline.
+   */
+  private async rotateSession(
+    manager: EntityManager,
+    oldSession: Session,
+    user: User,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<TokenDto> {
+    const { tokens, session: newSession } = await this.buildTokens(user);
+    newSession.ip = ip ?? null;
+    newSession.userAgent = userAgent ?? null;
+    newSession.chainId = oldSession.chainId;
+
+    await manager.save(Session, newSession);
+
+    const secret = this.configService.getOrThrow<string>(
+      'PASSWORD_HASH_SECRET',
+    );
+    oldSession.rotatedAt = new Date();
+    oldSession.replayPayload = encryptReplayPayload(tokens, secret);
+    oldSession.replayExpiresAt = new Date(Date.now() + REPLAY_GRACE_MS);
+    await manager.save(Session, oldSession);
+
+    return tokens;
+  }
+
+  /**
+   * Marks every session in a rotation chain as revoked. Used on logout and
+   * on reuse detection.
+   */
+  private async revokeChain(
+    manager: EntityManager,
+    chainId: string,
+  ): Promise<void> {
+    await manager.update(
+      Session,
+      { chainId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+  }
+
+  /**
+   * Logs out the user by revoking the entire rotation chain for the given
+   * session, so no leaked/rotated token from the same login can still be
+   * used.
    */
   async logout(userId: string, jti: string) {
     const session = await this.sessionRepository.findOne({
       where: { id: jti, userId },
     });
 
-    if (session) {
-      await this.sessionRepository.remove(session);
-    }
+    if (!session) return;
+
+    await this.sessionRepository.manager.transaction(async (manager) => {
+      await this.revokeChain(manager, session.chainId);
+    });
   }
 }

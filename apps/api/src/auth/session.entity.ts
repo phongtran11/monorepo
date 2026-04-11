@@ -59,6 +59,43 @@ export class Session {
   expiresAt: Date;
 
   /**
+   * Timestamp when this session was rotated (its refresh token exchanged for a new pair).
+   * NULL means the session is still current.
+   */
+  @Column({ type: 'timestamptz', name: 'rotated_at', nullable: true })
+  rotatedAt: Date | null;
+
+  /**
+   * Encrypted TokenDto that was issued when this session was rotated.
+   * Populated together with rotatedAt; returned to clients that replay the
+   * old refresh token within the grace window (idempotent refresh).
+   */
+  @Column({ type: 'text', name: 'replay_payload', nullable: true })
+  replayPayload: string | null;
+
+  /**
+   * Deadline after which replayPayload is no longer served, and replayed
+   * old tokens are treated as reuse → triggers chain revocation.
+   */
+  @Column({ type: 'timestamptz', name: 'replay_expires_at', nullable: true })
+  replayExpiresAt: Date | null;
+
+  /**
+   * Timestamp when this session was explicitly revoked (logout or reuse
+   * detection). A non-null value means the session chain is dead.
+   */
+  @Column({ type: 'timestamptz', name: 'revoked_at', nullable: true })
+  revokedAt: Date | null;
+
+  /**
+   * Root session ID of this rotation chain. All sessions rotated from a
+   * single login share the same chainId, so reuse detection can revoke the
+   * entire chain in one query.
+   */
+  @Column({ type: 'uuid', name: 'chain_id' })
+  chainId: string;
+
+  /**
    * The timestamp when the session was created.
    */
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })

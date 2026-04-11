@@ -8,6 +8,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -17,6 +18,8 @@ import { DataSource } from 'typeorm';
  */
 @Injectable()
 export class CategoryService {
+  private readonly logger = new Logger(CategoryService.name);
+
   /**
    * Creates an instance of the CategoryService.
    *
@@ -293,8 +296,11 @@ export class CategoryService {
     } catch (error) {
       // Rollback: delete newly moved image if DB transaction failed
       if (newImagePublicId) {
-        await this.cloudinaryService.deleteAsset(newImagePublicId);
+        this.cloudinaryService.deleteAsset(newImagePublicId).catch((err) => {
+          this.logger.error(`Failed to delete image ${newImagePublicId}`, err);
+        });
       }
+
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException('Slug danh mục đã tồn tại');
       }

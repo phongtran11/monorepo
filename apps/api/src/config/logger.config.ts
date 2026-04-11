@@ -20,12 +20,16 @@ export const loggerConfig = registerAs(
       transport:
         process.env.NODE_ENV !== 'production'
           ? {
-              target: 'pino-pretty',
-              options: {
-                singleLine: true,
-                colorize: true,
-                translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
-              },
+              targets: [
+                {
+                  target: 'pino-pretty',
+                  options: {
+                    singleLine: false,
+                    colorize: true,
+                    translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
+                  },
+                },
+              ],
             }
           : undefined,
       // Auto logging configuration

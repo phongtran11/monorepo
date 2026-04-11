@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is **Lam Thinh E-commerce**, a full-stack e-commerce platform built as a pnpm monorepo with three main packages:
 
 - `apps/api`: NestJS 11 backend with TypeORM, PostgreSQL, Redis, and Cloudinary
-- `apps/web`: Next.js 16 frontend with React 19 and Tailwind CSS 4
+- `apps/admin`: Next.js 16 admin dashboard with React 19, Tailwind CSS 4, and shadcn UI
 - `packages/shared`: Shared TypeScript constants, types, and helpers
 
 ## Common Development Commands
@@ -31,7 +31,7 @@ pnpm format
 pnpm --filter @lam-thinh-ecommerce/api dev        # Start API server (port 3000)
 pnpm --filter @lam-thinh-ecommerce/api test       # Run API unit tests
 pnpm --filter @lam-thinh-ecommerce/api test:e2e   # Run API E2E tests
-pnpm --filter @lam-thinh-ecommerce/web dev        # Start web app (port 4000)
+pnpm --filter @lam-thinh-ecommerce/admin dev      # Start admin dashboard
 pnpm --filter @lam-thinh-ecommerce/shared dev     # Build shared package in watch mode
 ```
 
@@ -41,7 +41,7 @@ pnpm --filter @lam-thinh-ecommerce/shared dev     # Build shared package in watc
 monorepo/
 ├── apps/
 │   ├── api/          # NestJS backend (see apps/api/CLAUDE.md)
-│   └── web/          # Next.js frontend (see apps/web/CLAUDE.md)
+│   └── admin/        # Next.js admin dashboard (see apps/admin/CLAUDE.md)
 └── packages/
     └── shared/       # Shared constants, types, helpers (see packages/shared/CLAUDE.md)
 ```
@@ -62,7 +62,7 @@ monorepo/
 - **Semicolons**: Always required
 - **Trailing Commas**: `all` in arrays and objects
 - **Import Organization**: Use `eslint-plugin-simple-import-sort` (enabled)
-  - Prioritize alias imports: `@lam-thinh-ecommerce/...`, `@api/*`, `@web/*`
+  - Prioritize alias imports: `@lam-thinh-ecommerce/...` (shared), `@api/*` (api), `@admin/*` (admin)
   - Avoid relative paths when possible
 - **Barrel Exports**: Use `index.ts` files to export multiple symbols from a folder
 

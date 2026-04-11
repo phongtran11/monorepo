@@ -25,6 +25,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.12.4",
   "devDependencies": {
+    "@lam-thinh-ecommerce/eslint-config": "workspace:*",
     "@types/node": "^25.4.0",
     "dts-bundle-generator": "^9.5.1",
     "rolldown": "1.0.0-rc.9"

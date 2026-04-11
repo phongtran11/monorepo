@@ -19,11 +19,11 @@ sequenceDiagram
     activate Repo
     Repo-->>Service: category trees (Category[])
     deactivate Repo
-    
+
     Service->>Service: sortCategoriesRecursive()
     Service-->>Controller: sorted category trees
     deactivate Service
-    
+
     Controller-->>Client: ApiResponseDto.success(CategoryResponseDto[])
     deactivate Controller
 ```
@@ -44,13 +44,13 @@ sequenceDiagram
     activate Controller
     Controller->>Service: create(dto, userId)
     activate Service
-    
+
     %% Validate Slug
     Service->>Repo: findOne({ where: { slug } })
     activate Repo
     Repo-->>Service: existing category or null
     deactivate Repo
-    
+
     alt slug exists
         Service-->>Controller: ConflictException("Slug danh mục đã tồn tại")
     else slug unique
@@ -60,7 +60,7 @@ sequenceDiagram
             activate Upload
             Upload-->>Service: publicId
             deactivate Upload
-            
+
             Service->>Cloud: moveToPermanent(publicId, "uploads/category/...")
             activate Cloud
             Cloud-->>Service: moved details (publicId, secureUrl)
@@ -89,7 +89,7 @@ sequenceDiagram
 
         DB-->>Service: return saved category
         deactivate DB
-        
+
         opt on Transaction Error & image was moved
             Service->>Cloud: deleteAsset(finalImagePublicId)
             activate Cloud
@@ -127,7 +127,7 @@ sequenceDiagram
         activate Upload
         Upload-->>Service: publicId
         deactivate Upload
-        
+
         Service->>Cloud: moveToPermanent(publicId, "uploads/category/...")
         activate Cloud
         Cloud-->>Service: moved details (publicId, secureUrl)
@@ -141,7 +141,7 @@ sequenceDiagram
     activate Repo
     Repo-->>DB: category entity
     deactivate Repo
-    
+
     opt if renaming category
         DB->>Repo: findOne({ where: { slug } })
         activate Repo
@@ -154,7 +154,7 @@ sequenceDiagram
         activate Repo
         Repo-->>DB: parent category
         deactivate Repo
-        
+
         DB->>Repo: findDescendants(category)
         activate Repo
         Repo-->>DB: category descendants
@@ -166,7 +166,7 @@ sequenceDiagram
     activate Repo
     Repo-->>DB: saved category
     deactivate Repo
-    
+
     DB-->>Service: result (saved category)
     deactivate DB
 
@@ -177,7 +177,7 @@ sequenceDiagram
         Cloud-->>Service: void
         deactivate Cloud
     end
-    
+
     opt on Transaction Error & new image was moved
         Service->>Cloud: deleteAsset(newImagePublicId)
         activate Cloud
@@ -204,7 +204,7 @@ sequenceDiagram
     activate Controller
     Controller->>Service: remove(id)
     activate Service
-    
+
     Service->>Repo: findOne(id, { relations: ['children'] })
     activate Repo
     Repo-->>Service: category entity

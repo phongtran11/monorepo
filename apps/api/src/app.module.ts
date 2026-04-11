@@ -25,6 +25,7 @@ import {
   redisConfig,
   validate,
 } from './config';
+import { ProductModule } from './product/product.module';
 
 /**
  * Root module for the NestJS application.
@@ -87,6 +88,7 @@ import {
     AuthModule,
     CategoryModule,
     CloudinaryModule,
+    ProductModule,
   ],
 })
 export class AppModule {}

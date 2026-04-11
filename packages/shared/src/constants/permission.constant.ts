@@ -28,6 +28,16 @@ export const Permission = {
   /** Permission to delete a category */
   DELETE_CATEGORY: 'delete:category',
 
+  // Products
+  /** Permission to create a new product */
+  CREATE_PRODUCT: 'create:product',
+  /** Permission to read product information */
+  READ_PRODUCTS: 'read:products',
+  /** Permission to update product details */
+  UPDATE_PRODUCT: 'update:product',
+  /** Permission to delete a product */
+  DELETE_PRODUCT: 'delete:product',
+
   // System
   /** Permission to perform system-wide management tasks */
   MANAGE_SYSTEM: 'manage:system',

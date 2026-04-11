@@ -21,7 +21,7 @@ sequenceDiagram
     activate UserSvc
     UserSvc-->>Auth: user (or null)
     deactivate UserSvc
-    
+
     alt user exists
         Auth-->>Controller: throw ConflictException('Email đã tồn tại')
         Controller-->>Client: 409 Conflict
@@ -31,24 +31,24 @@ sequenceDiagram
         activate UserSvc
         UserSvc-->>Auth: newly created User
         deactivate UserSvc
-        
+
         Note over Auth,SessionRepo: Calling generateTokens(user, ip, userAgent)
         Auth->>Jwt: sign(accessTokenPayload)
         activate Jwt
         Jwt-->>Auth: accessToken
         deactivate Jwt
-        
+
         Auth->>Jwt: sign(refreshTokenPayload with jti)
         activate Jwt
         Jwt-->>Auth: refreshToken
         deactivate Jwt
-        
+
         Auth->>Auth: Hash refreshToken (argon2)
         Auth->>SessionRepo: create & save session (jti, hashedToken, expiresAt)
         activate SessionRepo
         SessionRepo-->>Auth: session saved
         deactivate SessionRepo
-        
+
         Auth-->>Controller: TokenDto (tokens & expirations)
         Controller-->>Client: 201 Created + TokenDto
     end
@@ -75,7 +75,7 @@ sequenceDiagram
     activate UserSvc
     UserSvc-->>Auth: user (or null)
     deactivate UserSvc
-    
+
     alt user not found
         Auth-->>Controller: throw UnauthorizedException('Tài khoản không tồn tại')
         Controller-->>Client: 401 Unauthorized
@@ -84,7 +84,7 @@ sequenceDiagram
         Controller-->>Client: 401 Unauthorized
     else valid user
         Auth->>Auth: Verify password (argon2)
-        
+
         alt password invalid
             Auth-->>Controller: throw UnauthorizedException('Email hoặc mật khẩu không chính xác')
             Controller-->>Client: 401 Unauthorized
@@ -94,18 +94,18 @@ sequenceDiagram
             activate Jwt
             Jwt-->>Auth: accessToken
             deactivate Jwt
-            
+
             Auth->>Jwt: sign(refreshTokenPayload with jti)
             activate Jwt
             Jwt-->>Auth: refreshToken
             deactivate Jwt
-            
+
             Auth->>Auth: Hash refreshToken (argon2)
             Auth->>SessionRepo: create & save session
             activate SessionRepo
             SessionRepo-->>Auth: session saved
             deactivate SessionRepo
-            
+
             Auth-->>Controller: TokenDto
             Controller-->>Client: 200 OK + LoginResponseDto (Tokens + User info)
         end
@@ -144,18 +144,18 @@ sequenceDiagram
     Note over Controller: Authenticated via JwtRefreshAuthGuard
     Controller->>Auth: refreshToken(userId, jti, rawToken, ip, userAgent)
     activate Auth
-    
+
     Auth->>SessionRepo: findOne(where: { id: jti, userId })
     activate SessionRepo
     SessionRepo-->>Auth: session (or null)
     deactivate SessionRepo
-    
+
     alt no session or expired
         Auth->>SessionRepo: remove session (if exists)
         activate SessionRepo
         SessionRepo-->>Auth: void
         deactivate SessionRepo
-        
+
         Auth-->>Controller: throw UnauthorizedException('Phiên đăng nhập đã hết hạn...')
         Controller-->>Client: 401 Unauthorized
     else valid session
@@ -163,18 +163,18 @@ sequenceDiagram
         activate UserSvc
         UserSvc-->>Auth: user (or null)
         deactivate UserSvc
-        
+
         alt user not found or banned
             Auth->>SessionRepo: remove session
             activate SessionRepo
             SessionRepo-->>Auth: void
             deactivate SessionRepo
-            
+
             Auth-->>Controller: throw UnauthorizedException('Tài khoản không tồn tại...')
             Controller-->>Client: 401 Unauthorized
         else valid user
             Auth->>Auth: Verify rawToken against session.refreshToken (argon2)
-            
+
             alt invalid token hash
                 Auth-->>Controller: throw UnauthorizedException('Token không hợp lệ')
                 Controller-->>Client: 401 Unauthorized
@@ -183,18 +183,18 @@ sequenceDiagram
                 activate SessionRepo
                 SessionRepo-->>Auth: void
                 deactivate SessionRepo
-                
+
                 Note over Auth,SessionRepo: Calling generateTokens(user, ip, userAgent)
                 Auth->>Jwt: sign new tokens
                 activate Jwt
                 Jwt-->>Auth: new tokens
                 deactivate Jwt
-                
+
                 Auth->>SessionRepo: create & save new session
                 activate SessionRepo
                 SessionRepo-->>Auth: new session saved
                 deactivate SessionRepo
-                
+
                 Auth-->>Controller: new TokenDto
                 Controller-->>Client: 200 OK + TokenDto
             end
@@ -218,17 +218,17 @@ sequenceDiagram
     Note over Controller: Authenticated via JwtRefreshAuthGuard
     Controller->>Auth: logout(userId, jti)
     activate Auth
-    
+
     Auth->>SessionRepo: findOne(where: { id: jti, userId })
     activate SessionRepo
     SessionRepo-->>Auth: session
     deactivate SessionRepo
-    
+
     Auth->>SessionRepo: remove(session)
     activate SessionRepo
     SessionRepo-->>Auth: void
     deactivate SessionRepo
-    
+
     Auth-->>Controller: void
     deactivate Auth
     Controller-->>Client: 200 OK
