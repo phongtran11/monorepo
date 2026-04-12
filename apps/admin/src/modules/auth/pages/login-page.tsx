@@ -38,8 +38,7 @@ export function LoginPage() {
       if (!result.success) {
         setErrorMessage(result.message);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setErrorMessage('Lỗi hệ thống');
     }
   };

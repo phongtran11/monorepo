@@ -35,6 +35,7 @@ Pages (`src/app/`) are thin route files: they fetch data via `apis.*`, decode th
 ### API Client (`src/lib/api.ts`)
 
 `apis` is a server-only singleton (`Apis` class) that wraps `fetch` with:
+
 - Automatic `Authorization: Bearer <access_token>` header from cookies
 - Silent token refresh on 401 (one retry, via `TokenManager`)
 - Timeout and abort signal support
@@ -49,6 +50,7 @@ Temporary uploads go through `uploadTempAction` → returns `{ tempId, tempUrl, 
 ### Environment
 
 Validated at startup via Zod in `src/lib/env.ts` (server-only). Key vars:
+
 - `API_URL` — backend base URL (default: `http://localhost:8000/api/v1`)
 - `LOG_LEVEL` — optional log verbosity
 
