@@ -54,7 +54,12 @@ export function CategorySheet({
     useForm<CategorySchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(categorySchema),
-      defaultValues: { name: '', displayOrder: 0, parentId: '', imageId: '' },
+      defaultValues: {
+        name: '',
+        displayOrder: 0,
+        parentId: null,
+        imageId: null,
+      },
     });
 
   const isBusy = isPending || isUploading || formState.isSubmitting;
@@ -182,7 +187,7 @@ export function CategorySheet({
                 <Select
                   value={field.value || NO_PARENT}
                   onValueChange={(val) =>
-                    field.onChange(val === NO_PARENT ? '' : val)
+                    field.onChange(val === NO_PARENT ? null : val)
                   }
                 >
                   <SelectTrigger

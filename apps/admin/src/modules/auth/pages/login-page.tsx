@@ -14,6 +14,7 @@ import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -35,10 +36,12 @@ export function LoginPage() {
   const handleLogin = async (data: LoginSchema) => {
     try {
       const result = await loginAction(data);
+
       if (!result.success) {
         setErrorMessage(result.message);
       }
-    } catch {
+    } catch (e) {
+      if (isRedirectError(e)) return;
       setErrorMessage('Lỗi hệ thống');
     }
   };

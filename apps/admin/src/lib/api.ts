@@ -1,11 +1,27 @@
 'server only';
 
 import { ApiResponse, TokenPair } from '@lam-thinh-ecommerce/shared';
-import { cookies } from 'next/headers';
+import { cookies, headers as getIncomingHeaders } from 'next/headers';
+import { cache } from 'react';
 
 import { API_ENDPOINTS, COOKIES } from './constants';
 import { env } from './env';
 import { Logger } from './logger';
+
+/**
+ * Reads `x-request-id` from the incoming Next.js request, or generates a
+ * random UUID as a fallback. Wrapped in `React.cache` so it is called once
+ * per render tree — all `apis.*` calls within the same server request share
+ * the same ID.
+ */
+const getRequestId = cache(async (): Promise<string> => {
+  try {
+    const incoming = await getIncomingHeaders();
+    return incoming.get('x-request-id') ?? crypto.randomUUID();
+  } catch {
+    return crypto.randomUUID();
+  }
+});
 
 export type ApiRequestInit<R = unknown> = Omit<RequestInit, 'body'> & {
   data?: R;
@@ -69,9 +85,14 @@ function createAbortScope(requestInit: ApiRequestInit): AbortScope {
 }
 
 class TokenManager {
-  private logger = new Logger('TokenManager');
+  private readonly logger = new Logger('TokenManager');
 
   constructor(private readonly apiUrl: string) {}
+
+  private async getLogger(): Promise<Logger> {
+    const requestId = await getRequestId();
+    return this.logger.child({ requestId });
+  }
 
   async getAccessToken() {
     try {
@@ -92,6 +113,7 @@ class TokenManager {
   }
 
   async setTokens(tokens: TokenPair) {
+    const logger = await this.getLogger();
     try {
       const cookieStore = await cookies();
       const baseCookie = {
@@ -109,35 +131,36 @@ class TokenManager {
         ...baseCookie,
         maxAge: tokens.refreshTokenExpiresIn,
       });
-      this.logger.info('Tokens successfully saved to cookies');
+      logger.info('Tokens successfully saved to cookies');
     } catch (e) {
-      this.logger.error('Failed to set cookies during token refresh: %o', e);
+      logger.error('Failed to set cookies during token refresh: %o', e);
     }
   }
 
   async clearTokens() {
+    const logger = await this.getLogger();
     try {
       const cookieStore = await cookies();
       cookieStore.delete(COOKIES.ACCESS_TOKEN);
       cookieStore.delete(COOKIES.REFRESH_TOKEN);
-      this.logger.info('Tokens successfully cleared from cookies');
+      logger.info('Tokens successfully cleared from cookies');
     } catch (e) {
-      this.logger.error('Failed to clear cookies: %o', e);
+      logger.error('Failed to clear cookies: %o', e);
     }
   }
 
   async refreshTokens(): Promise<boolean> {
-    this.logger.info('Starting silent token refresh');
+    const logger = await this.getLogger();
+    logger.info('Starting silent token refresh');
     const refreshToken = await this.getRefreshToken();
 
     if (!refreshToken) {
-      this.logger.warn('No refresh token found for silent refresh');
+      logger.warn('No refresh token found for silent refresh');
       return false;
     }
 
     try {
       const url = buildUrl(this.apiUrl, API_ENDPOINTS.AUTH.REFRESH);
-      this.logger.debug('Fetching new access token from %s', url.toString());
 
       const response = await fetch(url, {
         method: 'POST',
@@ -148,7 +171,7 @@ class TokenManager {
       });
 
       if (!response.ok) {
-        this.logger.error(
+        logger.error(
           'Refresh token request failed with status: %d',
           response.status,
         );
@@ -159,17 +182,17 @@ class TokenManager {
       const result = (await response.json()) as ApiResponse<TokenPair>;
       if (result.success && result.data) {
         await this.setTokens(result.data);
-        this.logger.info('Token refresh completed successfully');
+        logger.info('Token refresh completed successfully');
         return true;
       }
 
-      this.logger.warn(
+      logger.warn(
         'Token refresh response failed in logic check. Clearing tokens.',
       );
       await this.clearTokens();
       return false;
     } catch (e) {
-      this.logger.error('Token refresh network error: %o', e);
+      logger.error('Token refresh network error: %o', e);
       return false;
     }
   }
@@ -210,6 +233,21 @@ export class Apis {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
+    try {
+      const incoming = await getIncomingHeaders();
+      const userAgent = incoming.get('user-agent');
+      if (userAgent && !headers.has('user-agent')) {
+        headers.set('user-agent', userAgent);
+      }
+    } catch {
+      // outside a Next.js request context (e.g. build time)
+    }
+
+    const requestId = await getRequestId();
+    if (!headers.has('x-request-id')) {
+      headers.set('x-request-id', requestId);
+    }
+
     return headers;
   }
 
@@ -229,16 +267,14 @@ export class Apis {
   private async parseSuccessBody<T>(
     response: Response,
     url: URL,
+    logger: Logger,
   ): Promise<ApiResponse<T>> {
     const body = (await response
       .json()
       .catch(() => null)) as ApiResponse<T> | null;
 
     if (!body) {
-      this.logger.error(
-        'Failed to parse JSON response from %s',
-        url.toString(),
-      );
+      logger.error('Failed to parse JSON response from %s', url.toString());
       return makeErrorResponse<T>(
         response.status,
         'Invalid JSON response',
@@ -251,12 +287,14 @@ export class Apis {
   private async parseErrorBody<T>(
     response: Response,
     url: URL,
+    logger: Logger,
   ): Promise<ApiResponse<T>> {
-    this.logger.error(
+    logger.error(
       'Request failed to %s with status %d',
       url.toString(),
       response.status,
     );
+
     const body = (await response
       .json()
       .catch(() => null)) as ApiResponse<T> | null;
@@ -275,20 +313,21 @@ export class Apis {
     error: unknown,
     url: URL,
     signal: AbortSignal,
+    logger: Logger,
   ): ApiResponse<T> {
     const err = error as { message?: string; name?: string } | null;
 
     if (err?.message === 'Request Timeout') {
-      this.logger.error('Request Timeout for %s', url.toString());
+      logger.error('Request Timeout for %s', url.toString());
       return makeErrorResponse<T>(408, 'Request Timeout', err.message);
     }
 
     if (signal.aborted || err?.name === 'AbortError') {
-      this.logger.warn('Request Aborted for %s', url.toString());
+      logger.warn('Request Aborted for %s', url.toString());
       return makeErrorResponse<T>(499, 'Request Aborted', 'aborted');
     }
 
-    this.logger.error(
+    logger.error(
       'Network or Unknown Error on %s: %s',
       url.toString(),
       err?.message,
@@ -305,19 +344,20 @@ export class Apis {
     requestInit: InternalRequestInit<R>,
     url: URL,
     method: string,
+    logger: Logger,
   ): Promise<ApiResponse<T> | null> {
-    this.logger.warn(
+    logger.warn(
       'Token expired for %s, attempting silent refresh',
       url.toString(),
     );
     const refreshed = await this.tokenManager.refreshTokens();
 
     if (!refreshed) {
-      this.logger.error('Refresh failed for %s, returning 401', url.toString());
+      logger.error('Refresh failed for %s, returning 401', url.toString());
       return null;
     }
 
-    this.logger.info(
+    logger.info(
       'Refresh successful, automatically retrying %s request to %s',
       method,
       url.toString(),
@@ -334,7 +374,8 @@ export class Apis {
     const method = requestInit.method || 'GET';
     const abort = createAbortScope(requestInit);
 
-    this.logger.info('Sending %s request to %s', method, url.toString());
+    const requestId = await getRequestId();
+    const logger = this.logger.child({ requestId });
 
     try {
       const response = await this.executeFetch(url, requestInit, abort.signal);
@@ -344,24 +385,25 @@ export class Apis {
           requestInit,
           url,
           method,
+          logger,
         );
         if (retried) return retried;
       }
 
       if (!response.ok) {
-        return this.parseErrorBody<T>(response, url);
+        return this.parseErrorBody<T>(response, url, logger);
       }
 
-      const body = await this.parseSuccessBody<T>(response, url);
-      this.logger.info(
+      const body = await this.parseSuccessBody<T>(response, url, logger);
+      logger.info(
         '%s Request to %s succeeded in %dms',
         method,
         url.toString(),
-        performance.now() - start,
+        Math.round(performance.now() - start),
       );
       return body;
     } catch (e: unknown) {
-      return this.handleCaughtError<T>(e, url, abort.signal);
+      return this.handleCaughtError<T>(e, url, abort.signal, logger);
     } finally {
       abort.dispose();
     }

@@ -40,9 +40,6 @@ export function CategoryTable({
   onEdit,
   onAddFirst,
 }: CategoryTableProps) {
-  // useReactTable returns non-memoizable functions — opt out of React Compiler
-  'use no memo';
-
   const [expanded, setExpanded] = useState<ExpandedState>(true);
 
   const meta: CategoryColumnMeta = { canUpdate, canDelete, onEdit };
