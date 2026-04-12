@@ -16,7 +16,9 @@ export const loggerConfig = registerAs(
       genReqId: (): string => {
         return randomUUID();
       },
-      level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+      level:
+        process.env.LOG_LEVEL ??
+        (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
       transport:
         process.env.NODE_ENV !== 'production'
           ? {
@@ -24,7 +26,7 @@ export const loggerConfig = registerAs(
                 {
                   target: 'pino-pretty',
                   options: {
-                    singleLine: false,
+                    singleLine: true,
                     colorize: true,
                     translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
                   },

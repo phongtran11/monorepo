@@ -3,6 +3,8 @@
 import { ApiResponse, TokenPair } from '@lam-thinh-ecommerce/shared';
 import { cookies } from 'next/headers';
 
+import { API_ENDPOINTS, COOKIES } from './constants';
+import { env } from './env';
 import { Logger } from './logger';
 
 export type ApiRequestInit<R = unknown> = Omit<RequestInit, 'body'> & {
@@ -74,7 +76,7 @@ class TokenManager {
   async getAccessToken() {
     try {
       const cookieStore = await cookies();
-      return cookieStore.get('access_token')?.value;
+      return cookieStore.get(COOKIES.ACCESS_TOKEN)?.value;
     } catch {
       return null;
     }
@@ -83,7 +85,7 @@ class TokenManager {
   async getRefreshToken() {
     try {
       const cookieStore = await cookies();
-      return cookieStore.get('refresh_token')?.value;
+      return cookieStore.get(COOKIES.REFRESH_TOKEN)?.value;
     } catch {
       return null;
     }
@@ -94,16 +96,16 @@ class TokenManager {
       const cookieStore = await cookies();
       const baseCookie = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.NODE_ENV === 'production',
         sameSite: 'lax' as const,
         path: '/',
       };
 
-      cookieStore.set('access_token', tokens.accessToken, {
+      cookieStore.set(COOKIES.ACCESS_TOKEN, tokens.accessToken, {
         ...baseCookie,
         maxAge: tokens.accessTokenExpiresIn,
       });
-      cookieStore.set('refresh_token', tokens.refreshToken, {
+      cookieStore.set(COOKIES.REFRESH_TOKEN, tokens.refreshToken, {
         ...baseCookie,
         maxAge: tokens.refreshTokenExpiresIn,
       });
@@ -116,8 +118,8 @@ class TokenManager {
   async clearTokens() {
     try {
       const cookieStore = await cookies();
-      cookieStore.delete('access_token');
-      cookieStore.delete('refresh_token');
+      cookieStore.delete(COOKIES.ACCESS_TOKEN);
+      cookieStore.delete(COOKIES.REFRESH_TOKEN);
       this.logger.info('Tokens successfully cleared from cookies');
     } catch (e) {
       this.logger.error('Failed to clear cookies: %o', e);
@@ -127,19 +129,22 @@ class TokenManager {
   async refreshTokens(): Promise<boolean> {
     this.logger.info('Starting silent token refresh');
     const refreshToken = await this.getRefreshToken();
+
     if (!refreshToken) {
       this.logger.warn('No refresh token found for silent refresh');
       return false;
     }
 
     try {
-      const url = buildUrl(this.apiUrl, '/auth/refresh');
+      const url = buildUrl(this.apiUrl, API_ENDPOINTS.AUTH.REFRESH);
       this.logger.debug('Fetching new access token from %s', url.toString());
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${refreshToken}`,
+        },
       });
 
       if (!response.ok) {
@@ -172,11 +177,11 @@ class TokenManager {
 
 export class Apis {
   private readonly apiUrl: string;
-  private readonly tokenManager: TokenManager;
   private readonly logger = new Logger('API');
+  private readonly tokenManager: TokenManager;
 
   constructor() {
-    this.apiUrl = process.env.API_URL ?? 'http://localhost:8000/api/v1';
+    this.apiUrl = env.API_URL;
     this.tokenManager = new TokenManager(this.apiUrl);
   }
 
@@ -200,6 +205,7 @@ export class Apis {
     }
 
     const token = await this.tokenManager.getAccessToken();
+
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -332,7 +338,6 @@ export class Apis {
 
     try {
       const response = await this.executeFetch(url, requestInit, abort.signal);
-
       if (response.status === 401 && !requestInit._retry) {
         const retried = await this.retryAfterRefresh<T, R>(
           path,

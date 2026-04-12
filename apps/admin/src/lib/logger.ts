@@ -1,5 +1,7 @@
 import pino from 'pino';
 
+import { env } from './env';
+
 export class Logger {
   private logger: pino.Logger;
 
@@ -7,11 +9,9 @@ export class Logger {
     this.logger = pino({
       name: this.name,
       level:
-        process.env.LOG_LEVEL || process.env.NODE_ENV === 'production'
-          ? 'info'
-          : 'debug',
+        env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'debug'),
       transport:
-        process.env.NODE_ENV === 'production'
+        env.NODE_ENV === 'production'
           ? undefined
           : {
               target: 'pino-pretty',
@@ -24,22 +24,27 @@ export class Logger {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   log(message: string, ...args: any[]) {
     this.logger.info(message, ...args);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error(message: string, ...args: any[]) {
     this.logger.error(message, ...args);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   warn(message: string, ...args: any[]) {
     this.logger.warn(message, ...args);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   info(message: string, ...args: any[]) {
     this.logger.info(message, ...args);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug(message: string, ...args: any[]) {
     this.logger.debug(message, ...args);
   }

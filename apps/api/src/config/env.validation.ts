@@ -30,6 +30,11 @@ export const envSchema = z.object({
 
   // Redis
   REDIS_URL: z.string().min(1),
+
+  // Logging
+  LOG_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
+    .optional(),
 });
 
 /**

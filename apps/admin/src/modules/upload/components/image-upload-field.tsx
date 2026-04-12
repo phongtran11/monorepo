@@ -1,0 +1,154 @@
+'use client';
+
+import { Button } from '@admin/components/ui/button';
+import { cn } from '@admin/lib/utils';
+import { Camera, ImageIcon, Loader2, X } from 'lucide-react';
+import Image from 'next/image';
+import { useRef, useState } from 'react';
+
+import { cancelUploadAction, uploadTempAction } from '../actions';
+
+interface ImageUploadFieldProps {
+  /** The current tempId value from the form (empty string = no staged upload). */
+  value: string;
+  /** Called with the new tempId after a successful upload, or '' when removed. */
+  onChange: (tempId: string) => void;
+  /** Existing image URL from the server (shown when no upload is staged). */
+  currentImageUrl?: string | null;
+  disabled?: boolean;
+  isUploading: boolean;
+  setIsUploading: (isUploading: boolean) => void;
+}
+
+export function ImageUploadField({
+  value,
+  onChange,
+  currentImageUrl,
+  disabled,
+  isUploading,
+  setIsUploading,
+}: ImageUploadFieldProps) {
+  // Tracks the currently staged upload: tempId + its preview URL.
+  // Kept as a single object so they stay in sync without an effect.
+  const [staged, setStaged] = useState<{
+    tempId: string;
+    previewUrl: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Show the staged preview when the form value matches our staged tempId;
+  // otherwise fall back to the existing server image.
+  const displayUrl =
+    staged && staged.tempId === value
+      ? staged.previewUrl
+      : (currentImageUrl ?? null);
+  const hasImage = !!displayUrl;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Cancel the previous staged upload before starting a replacement
+    if (staged) {
+      cancelUploadAction(staged.tempId);
+      setStaged(null);
+    }
+
+    setIsUploading(true);
+    setError(null);
+    onChange('');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const result = await uploadTempAction(formData);
+
+    setIsUploading(false);
+    // Reset input so the same file can be re-selected after removal
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (!result.success || !result.data) {
+      setError('Tải ảnh thất bại. Vui lòng thử lại.');
+      return;
+    }
+
+    setStaged({ tempId: result.data.tempId, previewUrl: result.data.tempUrl });
+    onChange(result.data.tempId);
+  };
+
+  const handleRemove = () => {
+    if (staged) {
+      cancelUploadAction(staged.tempId);
+      setStaged(null);
+    }
+    onChange('');
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="relative w-fit">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || isUploading}
+          aria-label="Chọn ảnh danh mục"
+          className={cn(
+            'relative flex size-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input transition-colors',
+            'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            hasImage ? 'border-transparent' : 'bg-muted/30',
+          )}
+        >
+          {isUploading ? (
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          ) : hasImage ? (
+            <>
+              <Image
+                src={displayUrl}
+                alt="Category image preview"
+                fill
+                className="object-cover"
+                sizes="96px"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+                <Camera className="size-5 text-white" />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-1 text-muted-foreground">
+              <ImageIcon className="size-7 opacity-40" />
+              <span className="text-xs">Chọn ảnh</span>
+            </div>
+          )}
+        </button>
+
+        {/* Remove button — only shown when a new image is staged */}
+        {value && !isUploading && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={handleRemove}
+            disabled={disabled}
+            aria-label="Xóa ảnh đã chọn"
+            className="absolute -right-2 -top-2 size-5"
+          >
+            <X className="size-3" />
+          </Button>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={disabled || isUploading}
+      />
+    </div>
+  );
+}
