@@ -6,7 +6,11 @@ import { Camera, ImageIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRef, useState } from 'react';
 
-import { cancelUploadAction, uploadTempAction } from '../actions';
+import {
+  cancelUploadAction,
+  getUploadSignatureAction,
+  registerTempUploadAction,
+} from '../actions';
 
 interface ImageUploadFieldProps {
   /** The current tempId value from the form (empty string = no staged upload). */
@@ -59,10 +63,45 @@ export function ImageUploadField({
     setError(null);
     onChange('');
 
-    const formData = new FormData();
-    formData.append('file', file);
+    // Step 1: get a short-lived Cloudinary signature from the server
+    const sigResult = await getUploadSignatureAction();
+    if (!sigResult.success || !sigResult.data) {
+      setIsUploading(false);
+      setError('Tải ảnh thất bại. Vui lòng thử lại.');
+      return;
+    }
 
-    const result = await uploadTempAction(formData);
+    const { signature, timestamp, apiKey, cloudName, folder, tags } =
+      sigResult.data;
+
+    // Step 2: upload the file directly from the browser to Cloudinary
+    const cloudinaryForm = new FormData();
+    cloudinaryForm.append('file', file);
+    cloudinaryForm.append('api_key', apiKey);
+    cloudinaryForm.append('timestamp', String(timestamp));
+    cloudinaryForm.append('signature', signature);
+    cloudinaryForm.append('folder', folder);
+    cloudinaryForm.append('tags', tags);
+
+    const cloudRes = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      { method: 'POST', body: cloudinaryForm },
+    );
+
+    if (!cloudRes.ok) {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setError('Tải ảnh thất bại. Vui lòng thử lại.');
+      return;
+    }
+
+    const { public_id, secure_url } = (await cloudRes.json()) as {
+      public_id: string;
+      secure_url: string;
+    };
+
+    // Step 3: register the uploaded asset with the backend to get a tempId
+    const result = await registerTempUploadAction(public_id, secure_url);
 
     setIsUploading(false);
     // Reset input so the same file can be re-selected after removal

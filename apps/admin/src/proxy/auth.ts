@@ -5,17 +5,17 @@ import {
   ROUTE_PERMISSIONS,
 } from '@admin/lib/constants';
 import { env } from '@admin/lib/env';
-import { AccountStatus, RolePermissionsMap } from '@lam-thinh-ecommerce/shared';
+import {
+  AccountStatus,
+  ApiResponse,
+  RolePermissionsMap,
+  TokenPair,
+} from '@lam-thinh-ecommerce/shared';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { decodeJwtPayload } from './jwt';
 
-async function refreshTokens(refreshToken: string): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresIn: number;
-  refreshTokenExpiresIn: number;
-} | null> {
+async function refreshTokens(refreshToken: string): Promise<TokenPair | null> {
   try {
     const response = await fetch(
       `${env.API_URL}${API_ENDPOINTS.AUTH.REFRESH}`,
@@ -30,7 +30,7 @@ async function refreshTokens(refreshToken: string): Promise<{
 
     if (!response.ok) return null;
 
-    const result = await response.json();
+    const result = (await response.json()) as ApiResponse<TokenPair>;
     if (result.success && result.data) return result.data;
     return null;
   } catch {

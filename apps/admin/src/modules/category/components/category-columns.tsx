@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@admin/components/ui/button';
+import { Checkbox } from '@admin/components/ui/checkbox';
 import { cn } from '@admin/lib/utils';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { ChevronRight, Pencil } from 'lucide-react';
@@ -26,6 +27,50 @@ function toFlatCategory(row: Row<Category>): FlatCategory {
 
 export const categoryColumns: ColumnDef<Category>[] = [
   {
+    id: 'select',
+    header: ({ table }) => {
+      const { canDelete } = table.options.meta as CategoryColumnMeta;
+      if (!canDelete) return null;
+
+      return (
+        <Checkbox
+          checked={
+            table.getIsAllRowsSelected()
+              ? true
+              : table.getIsSomeRowsSelected()
+                ? 'indeterminate'
+                : false
+          }
+          onCheckedChange={(checked) =>
+            table.toggleAllRowsSelected(checked === true)
+          }
+          aria-label="Chọn tất cả"
+        />
+      );
+    },
+    cell: ({ row, table }) => {
+      const { canDelete } = table.options.meta as CategoryColumnMeta;
+      if (!canDelete) return null;
+
+      const hasChildren =
+        row.original.children && row.original.children.length > 0;
+
+      return (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+          disabled={hasChildren}
+          aria-label="Chọn hàng"
+          title={
+            hasChildren ? 'Không thể chọn danh mục có danh mục con' : undefined
+          }
+        />
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     id: 'name',
     header: 'Tên danh mục',
     cell: ({ row }) => {
@@ -39,8 +84,9 @@ export const categoryColumns: ColumnDef<Category>[] = [
           style={{ paddingLeft: `${row.depth * 20}px` }}
         >
           {canExpand ? (
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon-xs"
               onClick={row.getToggleExpandedHandler()}
               className="flex size-5 shrink-0 items-center justify-center rounded hover:bg-muted"
               aria-label={isExpanded ? 'Thu gọn' : 'Mở rộng'}
@@ -51,7 +97,7 @@ export const categoryColumns: ColumnDef<Category>[] = [
                   isExpanded && 'rotate-90',
                 )}
               />
-            </button>
+            </Button>
           ) : (
             <span className="size-5 shrink-0" />
           )}

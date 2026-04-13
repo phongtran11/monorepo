@@ -1,6 +1,7 @@
 import { JwtAuthGuard, PermissionsGuard } from '@api/auth/guard';
 import type { AuthUser } from '@api/auth/jwt.type';
 import {
+  BulkDeleteCategoryDto,
   CategoryResponseDto,
   CreateCategoryDto,
   UpdateCategoryDto,
@@ -103,6 +104,29 @@ export class CategoryController {
     return ApiResponseDto.success(
       plainToInstance(CategoryResponseDto, category),
     );
+  }
+
+  /**
+   * Removes multiple categories in a single request (soft delete).
+   * All categories must exist and have no children.
+   *
+   * @param dto - The DTO containing the list of category IDs to delete.
+   * @returns A success message with null data.
+   */
+  @Delete('bulk')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.DELETE_CATEGORY)
+  @ApiBearerAuth()
+  @ApiOkResponse({
+    type: ApiResponseDto,
+    description: 'Successfully removed categories',
+  })
+  async bulkRemove(
+    @Body() dto: BulkDeleteCategoryDto,
+  ): Promise<ApiResponseDto<null>> {
+    await this.categoryService.bulkRemove(dto);
+    return ApiResponseDto.success(null);
   }
 
   /**

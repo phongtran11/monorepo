@@ -5,32 +5,23 @@ import { env } from './env';
 export class Logger {
   private logger: pino.Logger;
 
-  constructor(
-    private name: string,
-    pinoLogger?: pino.Logger,
-  ) {
-    this.logger =
-      pinoLogger ??
-      pino({
-        name: this.name,
-        level:
-          env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'debug'),
-        transport:
-          env.NODE_ENV === 'production'
-            ? undefined
-            : {
-                target: 'pino-pretty',
-                options: {
-                  singleLine: false,
-                  colorize: true,
-                  translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
-                },
+  constructor(private name: string) {
+    this.logger = pino({
+      name: this.name,
+      level:
+        env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'debug'),
+      transport:
+        env.NODE_ENV === 'production'
+          ? undefined
+          : {
+              target: 'pino-pretty',
+              options: {
+                singleLine: false,
+                colorize: true,
+                translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
               },
-      });
-  }
-
-  child(bindings: Record<string, unknown>): Logger {
-    return new Logger(this.name, this.logger.child(bindings));
+            },
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

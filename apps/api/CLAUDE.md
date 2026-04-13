@@ -91,9 +91,9 @@ When a create/update touches both Cloudinary and the DB, follow this pattern (se
 
 1. **Validate** uniqueness and read-only lookups first (no lock held).
 2. **Pre-process external work BEFORE the transaction**: consume temp uploads, move assets to permanent folder. Collect results.
-3. **Open the DB transaction** containing *only* DB operations — no Redis/Cloudinary calls inside.
+3. **Open the DB transaction** containing _only_ DB operations — no Redis/Cloudinary calls inside.
 4. **On DB failure**: roll back the moved Cloudinary assets in the `catch` block (`cloudinaryService.deleteAsset`).
-5. **On success (update flow)**: delete the *old* Cloudinary assets post-transaction as best-effort cleanup.
+5. **On success (update flow)**: delete the _old_ Cloudinary assets post-transaction as best-effort cleanup.
 
 Rationale: minimizes DB lock time, keeps rollback semantics sane, and orphaned assets from a crash between step 2 and 3 are reclaimed by the cleanup scheduler.
 

@@ -1,12 +1,17 @@
 import { JwtAuthGuard } from '@api/auth/guard';
 import type { AuthUser } from '@api/auth/jwt.type';
-import { TempUploadResponseDto } from '@api/cloudinary/dto';
+import {
+  RegisterTempUploadDto,
+  TempUploadResponseDto,
+} from '@api/cloudinary/dto';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
 import { CurrentUser } from '@api/common';
 import { ApiResponseDto } from '@api/common/dto/api-response.dto';
 import {
+  Body,
   Controller,
   Delete,
+  Get,
   Param,
   Post,
   UploadedFile,
@@ -18,6 +23,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiOkResponse,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -70,6 +76,46 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     const result = await this.tempUploadService.saveTempMeta(user.id, file);
+    return ApiResponseDto.success(
+      plainToInstance(TempUploadResponseDto, result),
+    );
+  }
+
+  /**
+   * Returns a short-lived Cloudinary upload signature so the browser can upload directly.
+   *
+   * @param user - The current authenticated user.
+   * @returns Signature parameters for the Cloudinary Upload API.
+   */
+  @Get('sign')
+  @ApiOkResponse({ description: 'Cloudinary upload signature' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  getUploadSignature(@CurrentUser() user: AuthUser) {
+    const result = this.tempUploadService.generateSignature(user.id);
+    return ApiResponseDto.success(result);
+  }
+
+  /**
+   * Registers a Cloudinary asset uploaded directly from the browser as a temp upload.
+   *
+   * @param user - The current authenticated user.
+   * @param body - The public ID and secure URL returned by Cloudinary.
+   * @returns The tempId, tempUrl, and expiration time.
+   */
+  @Post('temp/register')
+  @ApiResponse({ status: 201, type: TempUploadResponseDto })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  async registerTempUpload(
+    @CurrentUser() user: AuthUser,
+    @Body() body: RegisterTempUploadDto,
+  ) {
+    const result = await this.tempUploadService.registerDirectUpload(
+      user.id,
+      body.publicId,
+      body.secureUrl,
+    );
     return ApiResponseDto.success(
       plainToInstance(TempUploadResponseDto, result),
     );

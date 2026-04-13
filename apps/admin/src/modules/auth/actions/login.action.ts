@@ -2,6 +2,7 @@
 
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS } from '@admin/lib/constants';
+import { tokenManager } from '@admin/lib/token-manager';
 import { LoginResponse } from '@lam-thinh-ecommerce/shared';
 import { redirect } from 'next/navigation';
 
@@ -20,7 +21,7 @@ export async function loginAction(data: LoginSchema) {
   }
 
   // Safely use TokenManager to enforce clean single-responsibility
-  await apis.setTokens(result.data);
+  await tokenManager.setTokens(result.data);
 
   redirect('/');
 }

@@ -2,6 +2,7 @@
 
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS, COOKIES } from '@admin/lib/constants';
+import { tokenManager } from '@admin/lib/token-manager';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -18,7 +19,7 @@ export async function logoutAction() {
   }
 
   // Apis perfectly handles cookie cleaning
-  await apis.clearTokens();
+  await tokenManager.clearTokens();
 
   redirect('/login');
 }

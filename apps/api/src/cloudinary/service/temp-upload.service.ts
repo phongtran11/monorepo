@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { RedisService } from '@api/common/redis/redis.service';
+import { CLOUDINARY_CONFIG_TOKEN, CloudinaryConfig } from '@api/config';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { v2 as cloudinary } from 'cloudinary';
 
 /**
  * Metadata stored in Redis for a temporary upload.
@@ -30,10 +33,12 @@ export class TempUploadService {
    *
    * @param cloudinaryService - Service to interact with Cloudinary.
    * @param redisService - Service to interact with Redis.
+   * @param configService - NestJS config service for Cloudinary credentials.
    */
   constructor(
     private readonly cloudinaryService: CloudinaryService,
     private readonly redisService: RedisService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -98,6 +103,59 @@ export class TempUploadService {
 
     await this.redisService.del(key);
     return meta;
+  }
+
+  /**
+   * Generates a signed Cloudinary upload signature for browser-side direct upload.
+   * The signature authorizes a single upload to the "temp" folder.
+   *
+   * @param userId - The ID of the requesting user (embedded in asset tags).
+   * @returns Signature params to be passed directly to the Cloudinary Upload API.
+   */
+  generateSignature(userId: string) {
+    const timestamp = Math.round(Date.now() / 1000);
+    const folder = 'temp';
+    const tags = `temp,user_${userId}`;
+
+    const { apiSecret, apiKey, cloudName } =
+      this.configService.getOrThrow<CloudinaryConfig>(CLOUDINARY_CONFIG_TOKEN);
+
+    const signature = cloudinary.utils.api_sign_request(
+      { folder, tags, timestamp },
+      apiSecret,
+    );
+
+    return { signature, timestamp, apiKey, cloudName, folder, tags };
+  }
+
+  /**
+   * Registers a Cloudinary asset that was uploaded directly from the browser.
+   * Validates the asset is in the temp folder, then stores metadata in Redis.
+   *
+   * @param userId - The ID of the user who performed the upload.
+   * @param publicId - The Cloudinary public ID (must start with "temp/").
+   * @param secureUrl - The Cloudinary secure URL returned by the browser upload.
+   * @returns The tempId, tempUrl, and expiration time.
+   */
+  async registerDirectUpload(
+    userId: string,
+    publicId: string,
+    secureUrl: string,
+  ) {
+    if (!publicId.startsWith('temp/')) {
+      throw new BadRequestException('Asset phải nằm trong thư mục temp');
+    }
+
+    const tempId = randomUUID();
+    const meta: TempUploadMeta = { publicId, secureUrl, userId };
+
+    await this.redisService.set(
+      `${this.REDIS_PREFIX}${tempId}`,
+      JSON.stringify(meta),
+      this.TTL_24H,
+    );
+
+    return { tempId, tempUrl: secureUrl, expiresIn: this.TTL_24H };
   }
 
   /**

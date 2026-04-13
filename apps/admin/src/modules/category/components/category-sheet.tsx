@@ -1,17 +1,10 @@
 'use client';
 
+import { LSelect } from '@admin/components/atoms';
 import { Alert, AlertDescription } from '@admin/components/ui/alert';
 import { Button } from '@admin/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@admin/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -28,8 +21,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { createCategoryAction, updateCategoryAction } from '../actions';
 import { CategorySchema, categorySchema } from '../schemas/category.schema';
 import { FlatCategory } from '../types/category.type';
-
-const NO_PARENT = '__none__';
 
 interface CategorySheetProps {
   open: boolean;
@@ -107,7 +98,13 @@ export function CategorySheet({
   };
 
   // Exclude the category being edited from parent options
-  const parentOptions = allCategories.filter((c) => c.id !== editCategory?.id);
+  const parentOptions = allCategories
+    .filter((c) => c.id !== editCategory?.id && c.parentId !== editCategory?.id)
+    .map((c) => ({
+      value: c.id,
+      label: c.name,
+      depth: c.depth,
+    }));
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -184,34 +181,13 @@ export function CategorySheet({
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
                 <FieldLabel htmlFor={field.name}>Danh mục cha</FieldLabel>
-                <Select
-                  value={field.value || NO_PARENT}
-                  onValueChange={(val) =>
-                    field.onChange(val === NO_PARENT ? null : val)
-                  }
-                >
-                  <SelectTrigger
-                    id={field.name}
-                    aria-invalid={fieldState.invalid}
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="— Không có danh mục cha —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value={NO_PARENT}>
-                        — Không có danh mục cha —
-                      </SelectItem>
-                      {parentOptions.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {'  '.repeat(cat.depth)}
-                          {cat.depth > 0 ? '└ ' : ''}
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <LSelect
+                  value={field.value}
+                  onValueChange={(val) => field.onChange(val)}
+                  options={parentOptions}
+                  name={field.name}
+                  invalid={fieldState.invalid}
+                />
                 {fieldState.error && <FieldError errors={[fieldState.error]} />}
               </Field>
             )}

@@ -33,6 +33,24 @@ export const API_ENDPOINTS = {
   },
   UPLOAD: {
     TEMP: '/upload/temp',
+    SIGN: '/upload/sign',
+    REGISTER: '/upload/temp/register',
     CANCEL: (tempId: string) => `/upload/cancel/${tempId}`,
   },
 };
+
+export const DEFAULT_TIMEOUT_MS = 30_000;
+
+export const RESPONSE_ERROR_CODES = {
+  INVALID_JSON: 'parse_error',
+  REQUEST_TIMEOUT: 'request_timeout',
+  REQUEST_ABORTED: 'aborted',
+  UNKNOWN_NETWORK_ERROR: 'internal_error',
+};
+
+export const RESPONSE_ERROR_MESSAGES = {
+  [RESPONSE_ERROR_CODES.INVALID_JSON]: 'Invalid JSON response',
+  [RESPONSE_ERROR_CODES.REQUEST_TIMEOUT]: 'Request Timeout',
+  [RESPONSE_ERROR_CODES.REQUEST_ABORTED]: 'Request Aborted',
+  [RESPONSE_ERROR_CODES.UNKNOWN_NETWORK_ERROR]: 'Unknown network error',
+} as const;

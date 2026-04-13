@@ -8,16 +8,15 @@ import { CategorySchema } from '../schemas/category.schema';
 import { Category } from '../types/category.type';
 
 export async function createCategoryAction(data: CategorySchema) {
-  const payload = {
-    name: data.name,
-    displayOrder: data.displayOrder,
-    parentId: data.parentId || null,
-    imageId: data.imageId || undefined,
-  };
-
-  const result = await apis.post<Category, typeof payload>(
+  const result = await apis.post<Category, CategorySchema>(
     API_ENDPOINTS.CATEGORIES.BASE,
-    { data: payload },
+    {
+      data: {
+        ...data,
+        parentId: data.parentId || null,
+        imageId: data.imageId || null,
+      },
+    },
   );
 
   if (result.success) {

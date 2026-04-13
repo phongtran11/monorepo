@@ -1,4 +1,8 @@
-import { CreateCategoryDto, UpdateCategoryDto } from '@api/category/dto';
+import {
+  BulkDeleteCategoryDto,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from '@api/category/dto';
 import { Category } from '@api/category/entities/category.entity';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
@@ -107,68 +111,75 @@ export class CategoryService {
       withDeleted: true,
     });
 
-    if (existingSlug) {
+    if (existingSlug && !existingSlug.deletedAt) {
       throw new ConflictException('Slug danh mục đã tồn tại');
     }
 
     // Step 2: Pre-process image - ALL external operations BEFORE transaction
-    let finalImagePublicId: string | null = null;
-    let finalImageUrl: string | null = null;
-
-    if (dto.imageId) {
-      // 2a. Consume temp upload (Redis)
-      const { publicId } = await this.tempUploadService.consumeTempMeta(
-        dto.imageId,
-        userId,
-      );
-
-      // 2b. Move to permanent location
-      // Pattern: uploads/category/{year-month}/{uuid}
-      const uploadBatch = formatYearMonth();
-
-      const moved = await this.cloudinaryService.moveToPermanent(
-        publicId,
-        `uploads/category/${uploadBatch}`,
-      );
-
-      finalImagePublicId = moved.publicId;
-      finalImageUrl = moved.secureUrl;
-    }
+    const image = await this.resolveImage(dto.imageId, userId);
 
     // Step 3: Database transaction - ONLY DB operations, no external calls
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      const savedId = await this.dataSource.transaction(async (manager) => {
         const categoryRepository = manager.getRepository(Category);
 
-        // Prepare category entity with final image URLs
-        const category = categoryRepository.create({
-          name: dto.name,
-          slug,
-          displayOrder: dto.displayOrder,
-          imagePublicId: finalImagePublicId,
-          imageUrl: finalImageUrl,
-        });
-
         // Load parent if provided
+        let parent: Category | null = null;
         if (dto.parentId) {
-          const parent = await categoryRepository.findOne({
+          parent = await categoryRepository.findOne({
             where: { id: dto.parentId },
           });
 
           if (!parent) {
             throw new NotFoundException('Danh mục cha không tồn tại');
           }
-
-          category.parent = parent;
         }
 
-        // Save category - transaction ends here with final image reference
-        return categoryRepository.save(category);
+        // Use tree-aware repository so TypeORM recalculates mpath on save
+        const treeRepository = manager.getTreeRepository(Category);
+
+        // Restore soft-deleted category: reuse the same ID but reset all data
+        // Must go through treeRepository.save() — plain update() skips mpath recalculation
+        if (existingSlug?.deletedAt) {
+          const toRestore = await treeRepository.findOne({
+            where: { id: existingSlug.id },
+            withDeleted: true,
+          });
+
+          if (!toRestore) {
+            throw new NotFoundException('Danh mục không tồn tại');
+          }
+
+          toRestore.name = dto.name;
+          toRestore.displayOrder = dto.displayOrder ?? toRestore.displayOrder;
+          toRestore.imagePublicId = image?.publicId ?? null;
+          toRestore.imageUrl = image?.url ?? null;
+          toRestore.parent = parent;
+          toRestore.deletedAt = null;
+
+          const restored = await treeRepository.save(toRestore);
+          return restored.id;
+        }
+
+        // Create new category — treeRepository.save() sets mpath based on parent
+        const category = treeRepository.create({
+          name: dto.name,
+          slug,
+          displayOrder: dto.displayOrder,
+          imagePublicId: image?.publicId ?? null,
+          imageUrl: image?.url ?? null,
+          parent,
+        });
+
+        const saved = await treeRepository.save(category);
+        return saved.id;
       });
+
+      return this.findOne(savedId);
     } catch (error) {
       // Rollback: delete permanent image if DB transaction failed
-      if (finalImagePublicId) {
-        await this.cloudinaryService.deleteAsset(finalImagePublicId);
+      if (image) {
+        await this.cloudinaryService.deleteAsset(image.publicId);
       }
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException('Slug danh mục đã tồn tại');
@@ -192,22 +203,7 @@ export class CategoryService {
     userId: string,
   ): Promise<Category> {
     // Pre-process image BEFORE transaction (same pattern as create)
-    let newImagePublicId: string | null = null;
-    let newImageUrl: string | null = null;
-
-    if (dto.imageId) {
-      const { publicId } = await this.tempUploadService.consumeTempMeta(
-        dto.imageId,
-        userId,
-      );
-      const uploadBatch = formatYearMonth();
-      const moved = await this.cloudinaryService.moveToPermanent(
-        publicId,
-        `uploads/category/${uploadBatch}`,
-      );
-      newImagePublicId = moved.publicId;
-      newImageUrl = moved.secureUrl;
-    }
+    const newImage = await this.resolveImage(dto.imageId, userId);
 
     let oldImagePublicId: string | null = null;
 
@@ -249,8 +245,8 @@ export class CategoryService {
 
         // Apply new image if provided
         if (dto.imageId !== undefined) {
-          category.imagePublicId = newImagePublicId;
-          category.imageUrl = newImageUrl;
+          category.imagePublicId = newImage?.publicId ?? null;
+          category.imageUrl = newImage?.url ?? null;
         }
 
         if (dto.parentId !== undefined) {
@@ -295,9 +291,9 @@ export class CategoryService {
       return result;
     } catch (error) {
       // Rollback: delete newly moved image if DB transaction failed
-      if (newImagePublicId) {
-        this.cloudinaryService.deleteAsset(newImagePublicId).catch((err) => {
-          this.logger.error(`Failed to delete image ${newImagePublicId}`, err);
+      if (newImage) {
+        this.cloudinaryService.deleteAsset(newImage.publicId).catch((err) => {
+          this.logger.error(`Failed to delete image ${newImage.publicId}`, err);
         });
       }
 
@@ -309,6 +305,33 @@ export class CategoryService {
   }
 
   /**
+   * Consumes a temporary upload and moves it to the permanent category folder.
+   * Returns null if no imageId is provided.
+   *
+   * @param imageId - The temporary upload ID (optional).
+   * @param userId - The ID of the authenticated user.
+   * @returns The permanent publicId and url, or null.
+   */
+  private async resolveImage(
+    imageId: string | undefined,
+    userId: string,
+  ): Promise<{ publicId: string; url: string } | null> {
+    if (!imageId) return null;
+
+    const { publicId } = await this.tempUploadService.consumeTempMeta(
+      imageId,
+      userId,
+    );
+
+    const moved = await this.cloudinaryService.moveToPermanent(
+      publicId,
+      `uploads/category/${formatYearMonth()}`,
+    );
+
+    return { publicId: moved.publicId, url: moved.secureUrl };
+  }
+
+  /**
    * Checks whether an error is a PostgreSQL unique constraint violation (code 23505).
    *
    * @param error - The error to check.
@@ -316,6 +339,40 @@ export class CategoryService {
    */
   private isUniqueConstraintError(error: unknown): boolean {
     return (error as { code?: string })?.code === '23505';
+  }
+
+  /**
+   * Removes multiple categories atomically using soft remove.
+   * All categories must exist and have no children.
+   *
+   * @param dto - The DTO containing the list of category IDs to delete.
+   * @throws NotFoundException if any ID does not exist.
+   * @throws ConflictException if any category has children.
+   */
+  async bulkRemove(dto: BulkDeleteCategoryDto): Promise<void> {
+    const { ids } = dto;
+
+    const categories = await this.categoryRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: ['children'],
+    });
+
+    if (categories.length !== ids.length) {
+      const foundIds = new Set(categories.map((c) => c.id));
+      const missing = ids.find((id) => !foundIds.has(id));
+      throw new NotFoundException(`Danh mục không tồn tại: ${missing}`);
+    }
+
+    const withChildren = categories.find(
+      (c) => c.children && c.children.length > 0,
+    );
+    if (withChildren) {
+      throw new ConflictException(
+        `Không thể xóa danh mục có chứa danh mục con: ${withChildren.name}`,
+      );
+    }
+
+    await this.categoryRepository.softRemove(categories);
   }
 
   /**

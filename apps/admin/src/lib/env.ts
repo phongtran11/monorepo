@@ -6,7 +6,7 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
-  API_URL: z.string().url().default('http://localhost:8000/api/v1'),
+  API_URL: z.url().default('http://localhost:8000/api/v1'),
   LOG_LEVEL: z.string().optional(),
 });
 
