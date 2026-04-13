@@ -31,6 +31,9 @@ export const API_ENDPOINTS = {
   CATEGORIES: {
     BASE: '/categories',
   },
+  PRODUCTS: {
+    BASE: '/products',
+  },
   UPLOAD: {
     TEMP: '/upload/temp',
     SIGN: '/upload/sign',
