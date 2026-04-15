@@ -108,7 +108,7 @@ export const categoryColumns: ColumnDef<Category>[] = [
               alt={cat.name}
               width={32}
               height={32}
-              className="size-8 shrink-0 rounded object-cover"
+              className="size-8 shrink-0 rounded object-contain"
             />
           ) : (
             <div className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-xs font-semibold uppercase text-muted-foreground">

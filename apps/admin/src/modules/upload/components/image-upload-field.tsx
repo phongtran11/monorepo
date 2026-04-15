@@ -190,7 +190,7 @@ export function ImageUploadField({
                   src={displayUrl}
                   alt="Category image preview"
                   fill
-                  className="object-cover"
+                  className="object-conatain"
                   sizes="96px"
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
