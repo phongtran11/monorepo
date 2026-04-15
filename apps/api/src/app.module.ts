@@ -69,6 +69,14 @@ import { ProductModule } from './product/product.module';
           autoLoadEntities: true,
           synchronize: appConfig.nodeEnv !== 'production',
           logger: new DBLogger(),
+          ssl: true,
+          extra: {
+            ssl: {
+              rejectUnauthorized: false,
+            },
+            max: 20,
+            idleTimeoutMillis: 30000,
+          },
         };
       },
     }),

@@ -16,5 +16,6 @@ export type TempUploadData = {
 export async function uploadTempAction(formData: FormData) {
   return apis.post<TempUploadData>(API_ENDPOINTS.UPLOAD.TEMP, {
     data: formData,
+    timeout: 60_000, // 60 seconds
   });
 }

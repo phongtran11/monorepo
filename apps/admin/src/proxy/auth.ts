@@ -91,7 +91,11 @@ export async function handleAuth(
       return redirectToLogin(request);
     }
 
-    const response = NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-role', String(payload.role));
+    const response = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
     const baseCookie = {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
@@ -134,6 +138,14 @@ export async function handleAuth(
     if (!hasRouteAccess(pathname, payload.role)) {
       return NextResponse.redirect(new URL('/', request.url));
     }
+
+    // Forward the decoded role to the page via request header so pages don't
+    // need to re-decode the JWT cookie themselves.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-role', String(payload.role));
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   }
 
   return null;

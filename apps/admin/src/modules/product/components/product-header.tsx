@@ -2,21 +2,23 @@
 
 import { Button } from '@admin/components/ui/button';
 import { Skeleton } from '@admin/components/ui/skeleton';
+import { usePermission } from '@admin/modules/auth/context/user.context';
+import { Permission } from '@lam-thinh-ecommerce/shared';
 import { Package, Plus } from 'lucide-react';
 
 interface ProductHeaderProps {
   loading?: boolean;
   count?: number;
-  canCreate?: boolean;
   onCreateClick?: () => void;
 }
 
 export function ProductHeader({
   loading = false,
   count,
-  canCreate,
   onCreateClick,
 }: ProductHeaderProps) {
+  const canCreate = usePermission(Permission.CREATE_PRODUCT);
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">

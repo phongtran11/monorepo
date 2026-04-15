@@ -8,7 +8,7 @@ export function AppHeader() {
       <SidebarTrigger />
 
       <div className="ml-auto flex items-center gap-3">
-        <UserNav name="Admin User" email="admin@lamthinh.dev" />
+        <UserNav />
       </div>
     </header>
   );

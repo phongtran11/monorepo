@@ -13,18 +13,9 @@ import { PaginatedProducts, Product } from '../types/product.type';
 interface ProductPageProps {
   data: PaginatedProducts;
   categories: Category[];
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
 }
 
-export function ProductPage({
-  data,
-  categories,
-  canCreate,
-  canUpdate,
-  canDelete,
-}: ProductPageProps) {
+export function ProductPage({ data, categories }: ProductPageProps) {
   const router = useRouter();
   const flatCategories = flattenCategories(categories);
 
@@ -36,15 +27,12 @@ export function ProductPage({
     <div className="flex flex-col gap-4">
       <ProductHeader
         count={data.total}
-        canCreate={canCreate}
         onCreateClick={() => router.push('/products/create')}
       />
 
       <ProductTable
         data={data}
         categories={flatCategories}
-        canUpdate={canUpdate}
-        canDelete={canDelete}
         onEdit={handleEdit}
       />
     </div>

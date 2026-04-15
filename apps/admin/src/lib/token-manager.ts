@@ -66,8 +66,11 @@ class TokenManager {
   }
 
   async refreshTokens(): Promise<boolean> {
-    this.logger.info('Starting silent token refresh');
     const refreshToken = await this.getRefreshToken();
+    this.logger.info(
+      'Starting silent token refresh with refresh token: %s',
+      refreshToken,
+    );
 
     if (!refreshToken) {
       this.logger.warn('No refresh token found for silent refresh');

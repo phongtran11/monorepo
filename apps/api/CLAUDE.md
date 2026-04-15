@@ -46,10 +46,16 @@ Context for the NestJS backend (`apps/api`).
 ## Authentication
 
 - JWT-based with access + refresh tokens
-- Session tracking via JTI (unique token IDs)
 - Two Passport strategies: `JwtStrategy`, `JwtRefreshStrategy`
-- Argon2 password hashing with secret
+- Argon2 password hashing with secret (`PASSWORD_HASH_SECRET`)
 - Role-based access control (CUSTOMER, STAFF, ADMIN)
+
+### Session Entity & Rotation
+
+`Session` entity tracks every refresh token by JTI. Fields beyond basics:
+- `chainId` — shared by all tokens in a rotation chain; revoking one chain revokes all
+- `replayPayload` / `replayExpiresAt` — idempotent refresh: if a client replays an already-rotated token within the grace period, the rotated token is returned instead of an error
+- `revokedAt` — set when the session is explicitly revoked (logout / suspicious activity)
 
 ## Database
 
@@ -81,9 +87,10 @@ price: number;
 ## Image Management
 
 - Cloudinary for permanent storage
-- `TempUploadService` stages uploads under `temp/` with Redis-tracked tempIds
-- Automatic cleanup scheduler for expired temporary uploads
+- `TempUploadService` stages uploads under `temp/` with Redis-tracked `tempId`s
+- NestJS scheduler automatically purges expired temp uploads
 - Permanent folder convention: `uploads/<resource>/<YYYY-MM>` (use `formatYearMonth()` from shared)
+- `ProductImage` entity stores `imageUrl` + `imagePublicId` + `sortOrder`; declared as `cascade: ['insert', 'update']` on the product relation so images are persisted automatically during product create/update
 
 ### External-Before-Transaction Pattern
 
@@ -137,8 +144,30 @@ For list endpoints (see `ProductService.findAll`):
 - **Coverage**: `pnpm --filter @lam-thinh-ecommerce/api test:cov`
 - **E2E Setup**: Use `bootstrapApp` factory from `src/common/factory/app.factory.ts`
 
+## Bulk Operations
+
+Bulk endpoints (e.g. bulk-delete categories) accept an array of IDs via a dedicated DTO:
+
+```typescript
+export class BulkDeleteCategoryDto {
+  @IsUUID('all', { each: true })
+  @IsArray()
+  ids: string[];
+}
+```
+
+## Category Tree
+
+Categories use TypeORM `@Tree('materialized-path')`:
+- `@TreeParent()` → `parent: Category | null`
+- `@TreeChildren()` → `children: Category[]`
+- `displayOrder` field controls sibling order; services sort recursively after retrieval
+
 ## Key Reference Files
 
 - **API response envelope**: `src/common/dto/api-response.dto.ts`
 - **Global app bootstrap**: `src/common/factory/app.factory.ts`
 - **Environment validation**: `src/config/env.validation.ts`
+- **Permission guards**: `src/auth/guard/` (jwt-auth, jwt-refresh-auth, permissions, roles)
+- **Custom decorators**: `src/common/decorator/` (current-user, permissions, roles)
+- **Swagger helpers**: `src/common/swagger/api-response.mixin.ts` (`ApiResponseOf(...)`)

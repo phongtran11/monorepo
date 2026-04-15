@@ -8,15 +8,11 @@ const CATEGORY_SKELETON_COLUMNS: TableSkeletonColumn[] = [
   { cell: { type: 'actions', count: 2 } },
 ];
 
-export function CategoryTableSkeleton() {
-  return;
-}
-
 export default function CategoriesLoading() {
   return (
     <div className="flex flex-col gap-4">
       <CategoryHeader loading />
-      <TableSkeleton columns={CATEGORY_SKELETON_COLUMNS} />;
+      <TableSkeleton columns={CATEGORY_SKELETON_COLUMNS} />
     </div>
   );
 }

@@ -2,9 +2,9 @@
 
 import { Button } from '@admin/components/ui/button';
 import { cn } from '@admin/lib/utils';
-import { Camera, ImageIcon, Loader2, X } from 'lucide-react';
+import { Camera, Clipboard, ImageIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   cancelUploadAction,
@@ -39,7 +39,9 @@ export function ImageUploadField({
     previewUrl: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPasteHovered, setIsPasteHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Show the staged preview when the form value matches our staged tempId;
   // otherwise fall back to the existing server image.
@@ -49,72 +51,105 @@ export function ImageUploadField({
       : (currentImageUrl ?? null);
   const hasImage = !!displayUrl;
 
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (disabled || isUploading) return;
+
+      // Cancel the previous staged upload before starting a replacement
+      if (staged) {
+        cancelUploadAction(staged.tempId);
+        setStaged(null);
+      }
+
+      setIsUploading(true);
+      setError(null);
+      onChange('');
+
+      // Step 1: get a short-lived Cloudinary signature from the server
+      const sigResult = await getUploadSignatureAction();
+      if (!sigResult.success || !sigResult.data) {
+        setIsUploading(false);
+        setError('Tải ảnh thất bại. Vui lòng thử lại.');
+        return;
+      }
+
+      const { signature, timestamp, apiKey, cloudName, folder, tags } =
+        sigResult.data;
+
+      // Step 2: upload the file directly from the browser to Cloudinary
+      const cloudinaryForm = new FormData();
+      cloudinaryForm.append('file', file);
+      cloudinaryForm.append('api_key', apiKey);
+      cloudinaryForm.append('timestamp', String(timestamp));
+      cloudinaryForm.append('signature', signature);
+      cloudinaryForm.append('folder', folder);
+      cloudinaryForm.append('tags', tags);
+
+      const cloudRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        { method: 'POST', body: cloudinaryForm },
+      );
+
+      if (!cloudRes.ok) {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setError('Tải ảnh thất bại. Vui lòng thử lại.');
+        return;
+      }
+
+      const { public_id, secure_url } = (await cloudRes.json()) as {
+        public_id: string;
+        secure_url: string;
+      };
+
+      // Step 3: register the uploaded asset with the backend to get a tempId
+      const result = await registerTempUploadAction(public_id, secure_url);
+
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      if (!result.success || !result.data) {
+        setError('Tải ảnh thất bại. Vui lòng thử lại.');
+        return;
+      }
+
+      setStaged({
+        tempId: result.data.tempId,
+        previewUrl: result.data.tempUrl,
+      });
+      onChange(result.data.tempId);
+    },
+    [disabled, isUploading, staged, onChange, setIsUploading],
+  );
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await uploadFile(file);
+  };
 
-    // Cancel the previous staged upload before starting a replacement
-    if (staged) {
-      cancelUploadAction(staged.tempId);
-      setStaged(null);
-    }
+  // Listen for paste events on the container element
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    setIsUploading(true);
-    setError(null);
-    onChange('');
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-    // Step 1: get a short-lived Cloudinary signature from the server
-    const sigResult = await getUploadSignatureAction();
-    if (!sigResult.success || !sigResult.data) {
-      setIsUploading(false);
-      setError('Tải ảnh thất bại. Vui lòng thử lại.');
-      return;
-    }
-
-    const { signature, timestamp, apiKey, cloudName, folder, tags } =
-      sigResult.data;
-
-    // Step 2: upload the file directly from the browser to Cloudinary
-    const cloudinaryForm = new FormData();
-    cloudinaryForm.append('file', file);
-    cloudinaryForm.append('api_key', apiKey);
-    cloudinaryForm.append('timestamp', String(timestamp));
-    cloudinaryForm.append('signature', signature);
-    cloudinaryForm.append('folder', folder);
-    cloudinaryForm.append('tags', tags);
-
-    const cloudRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: 'POST', body: cloudinaryForm },
-    );
-
-    if (!cloudRes.ok) {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setError('Tải ảnh thất bại. Vui lòng thử lại.');
-      return;
-    }
-
-    const { public_id, secure_url } = (await cloudRes.json()) as {
-      public_id: string;
-      secure_url: string;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) await uploadFile(file);
+          break;
+        }
+      }
     };
 
-    // Step 3: register the uploaded asset with the backend to get a tempId
-    const result = await registerTempUploadAction(public_id, secure_url);
-
-    setIsUploading(false);
-    // Reset input so the same file can be re-selected after removal
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
-    if (!result.success || !result.data) {
-      setError('Tải ảnh thất bại. Vui lòng thử lại.');
-      return;
-    }
-
-    setStaged({ tempId: result.data.tempId, previewUrl: result.data.tempUrl });
-    onChange(result.data.tempId);
-  };
+    container.addEventListener('paste', handlePaste);
+    return () => container.removeEventListener('paste', handlePaste);
+  }, [uploadFile]);
 
   const handleRemove = () => {
     if (staged) {
@@ -126,56 +161,101 @@ export function ImageUploadField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="relative w-fit">
+      <div
+        ref={containerRef}
+        className="flex items-end gap-2"
+        // Make the container focusable so paste events fire when it or a child is focused
+        tabIndex={-1}
+        style={{ outline: 'none' }}
+      >
+        {/* Image picker button */}
+        <div className="relative w-fit">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || isUploading}
+            aria-label="Chọn ảnh danh mục"
+            className={cn(
+              'relative flex size-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input transition-colors',
+              'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              hasImage ? 'border-transparent' : 'bg-muted/30',
+            )}
+          >
+            {isUploading ? (
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            ) : hasImage ? (
+              <>
+                <Image
+                  src={displayUrl}
+                  alt="Category image preview"
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+                  <Camera className="size-5 text-white" />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                <ImageIcon className="size-7 opacity-40" />
+                <span className="text-xs">Chọn ảnh</span>
+              </div>
+            )}
+          </button>
+
+          {/* Remove button — only shown when a new image is staged */}
+          {value && !isUploading && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={handleRemove}
+              disabled={disabled}
+              aria-label="Xóa ảnh đã chọn"
+              className="absolute -right-2 -top-2 size-5"
+            >
+              <X className="size-3" />
+            </Button>
+          )}
+        </div>
+
+        {/* Paste from clipboard button */}
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
           disabled={disabled || isUploading}
-          aria-label="Chọn ảnh danh mục"
+          aria-label="Dán ảnh từ clipboard"
+          onMouseEnter={() => setIsPasteHovered(true)}
+          onMouseLeave={() => setIsPasteHovered(false)}
+          onClick={async () => {
+            try {
+              const clipboardItems = await navigator.clipboard.read();
+              for (const clipboardItem of clipboardItems) {
+                for (const type of clipboardItem.types) {
+                  if (type.startsWith('image/')) {
+                    const blob = await clipboardItem.getType(type);
+                    const file = new File([blob], 'paste.png', { type });
+                    await uploadFile(file);
+                    return;
+                  }
+                }
+              }
+              setError('Không tìm thấy ảnh trong clipboard.');
+            } catch {
+              setError('Không thể đọc clipboard. Hãy dùng Ctrl+V.');
+            }
+          }}
           className={cn(
-            'relative flex size-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-input transition-colors',
+            'flex size-8 items-center justify-center rounded-md border border-dashed border-input transition-colors',
             'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            hasImage ? 'border-transparent' : 'bg-muted/30',
+            isPasteHovered ? 'bg-muted/50' : 'bg-muted/20',
           )}
+          title="Dán ảnh từ clipboard (Ctrl+V)"
         >
-          {isUploading ? (
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          ) : hasImage ? (
-            <>
-              <Image
-                src={displayUrl}
-                alt="Category image preview"
-                fill
-                className="object-cover"
-                sizes="96px"
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
-                <Camera className="size-5 text-white" />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-1 text-muted-foreground">
-              <ImageIcon className="size-7 opacity-40" />
-              <span className="text-xs">Chọn ảnh</span>
-            </div>
-          )}
+          <Clipboard className="size-4 text-muted-foreground" />
         </button>
-
-        {/* Remove button — only shown when a new image is staged */}
-        {value && !isUploading && (
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            onClick={handleRemove}
-            disabled={disabled}
-            aria-label="Xóa ảnh đã chọn"
-            className="absolute -right-2 -top-2 size-5"
-          >
-            <X className="size-3" />
-          </Button>
-        )}
       </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}

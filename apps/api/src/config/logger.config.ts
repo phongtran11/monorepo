@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { IncomingMessage } from 'node:http';
 
 import { registerAs } from '@nestjs/config';
 import { Params } from 'nestjs-pino';
@@ -16,6 +17,16 @@ export const loggerConfig = registerAs(
       genReqId: (): string => {
         return randomUUID();
       },
+      serializers: {
+        req(req: IncomingMessage & { id?: string }) {
+          return {
+            id: req.id,
+            method: req.method,
+            url: req.url,
+            authorization: req.headers['authorization'],
+          };
+        },
+      },
       level:
         process.env.LOG_LEVEL ??
         (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
@@ -26,7 +37,7 @@ export const loggerConfig = registerAs(
                 {
                   target: 'pino-pretty',
                   options: {
-                    singleLine: true,
+                    singleLine: false,
                     colorize: true,
                     translateTime: 'yyyy-mm-dd HH:MM:ss.l o',
                   },
@@ -34,8 +45,6 @@ export const loggerConfig = registerAs(
               ],
             }
           : undefined,
-      // Auto logging configuration
-      autoLogging: true,
     },
     forRoutes: ['{*path}'],
   }),

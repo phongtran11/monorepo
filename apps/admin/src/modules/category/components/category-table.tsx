@@ -10,6 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@admin/components/ui/table';
+import { usePermission } from '@admin/modules/auth/context/user.context';
+import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   ExpandedState,
   flexRender,
@@ -27,21 +29,19 @@ import { CategoryColumnMeta, categoryColumns } from './category-columns';
 
 interface CategoryTableProps {
   categories: Category[];
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
   onEdit: (cat: FlatCategory) => void;
   onAddFirst: () => void;
 }
 
 export function CategoryTable({
   categories,
-  canCreate,
-  canUpdate,
-  canDelete,
   onEdit,
   onAddFirst,
 }: CategoryTableProps) {
+  const canCreate = usePermission(Permission.CREATE_CATEGORY);
+  const canUpdate = usePermission(Permission.UPDATE_CATEGORY);
+  const canDelete = usePermission(Permission.DELETE_CATEGORY);
+
   const [expanded, setExpanded] = useState<ExpandedState>(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);

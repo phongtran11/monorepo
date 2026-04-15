@@ -19,7 +19,7 @@ export async function createProductAction(data: ProductSchema) {
       categoryId: data.categoryId,
       shortDescription: data.shortDescription || undefined,
       description: data.description || undefined,
-      imageIds: data.imageId ? [data.imageId] : [],
+      imageIds: data.imageIds ?? [],
     },
   });
 

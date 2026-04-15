@@ -25,3 +25,6 @@ Thumbs.db
 # Turbo
 .turbo
 .gitnexus
+
+# Logs
+logs/

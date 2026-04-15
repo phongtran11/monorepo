@@ -18,6 +18,11 @@ export type LSelectProps = {
   /** Whether the field is in an invalid state — sets `aria-invalid` on the trigger. */
   invalid?: boolean;
   placeholder?: string;
+  /**
+   * Whether to show the empty "— Không giá trị —" option.
+   * Defaults to `true`. Set to `false` for required fields that always have a value.
+   */
+  showEmpty?: boolean;
   /** Extra className forwarded to the `<SelectTrigger>`. Defaults to `w-full`. */
   className?: string;
 };
@@ -32,11 +37,12 @@ export function LSelect({
   name,
   invalid,
   placeholder = DEFAULT_PLACEHOLDER,
+  showEmpty = true,
   className,
 }: LSelectProps) {
   return (
     <Select
-      value={value || NO_VALUE}
+      value={showEmpty ? value || NO_VALUE : value || undefined}
       onValueChange={(val) => onValueChange(val === NO_VALUE ? '' : val)}
     >
       <SelectTrigger
@@ -48,7 +54,7 @@ export function LSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          <SelectItem value={NO_VALUE}>{placeholder}</SelectItem>
+          {showEmpty && <SelectItem value={NO_VALUE}>{placeholder}</SelectItem>}
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.depth && option.depth > 0

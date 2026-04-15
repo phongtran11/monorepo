@@ -1,3 +1,9 @@
+export interface CategoryPermissions {
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
 export type Category = {
   id: string;
   name: string;

@@ -45,7 +45,14 @@ Usage: `apis.get<ResponseType>(path)`, `apis.post<ResponseType, BodyType>(path, 
 
 ### Upload Flow
 
-Temporary uploads go through `uploadTempAction` → returns `{ tempId, tempUrl, expiresIn }`. The `tempId` is submitted with the form payload. On cancel, `cancelUploadAction` cleans up the temp asset.
+Four server actions handle the full lifecycle (`src/modules/upload/actions/`):
+
+1. `uploadTempAction` — uploads file to Cloudinary `temp/` folder, returns `{ tempId, tempUrl, expiresIn }`
+2. `getUploadSignatureAction` — fetches a Cloudinary signed-upload token for direct browser upload
+3. `registerTempUploadAction` — registers an already-uploaded temp asset with the backend
+4. `cancelUploadAction` — deletes the temp asset from Cloudinary and Redis (call on form cancel or unmount)
+
+The `tempId` is submitted as part of the form payload. The backend moves it to the permanent folder during the create/update transaction.
 
 ### Environment
 
@@ -62,3 +69,34 @@ Validated at startup via Zod in `src/lib/env.ts` (server-only). Key vars:
 ### Route Permissions
 
 Defined in `src/lib/constants.ts` as `ROUTE_PERMISSIONS` (prefix → `Permission[]`). The middleware checks these against the user's role via `RolePermissionsMap` from the shared package. Pages also decode the JWT to derive per-action capability flags (`canCreate`, `canUpdate`, `canDelete`) and pass them down to page components.
+
+### Middleware Matcher
+
+`src/proxy.ts` excludes from middleware: `/api/*`, `/_next/static/*`, `/_next/image/*`, and `*.png` files. Everything else is intercepted by `src/proxy/auth.ts`.
+
+### Category Tree Flattening
+
+The API returns categories as a nested tree. For table rendering the admin converts it to a flat list via the `FlatCategory` type (`src/modules/category/types/category.type.ts`):
+
+```typescript
+type FlatCategory = Category & { depth: number; parentId: string | null };
+```
+
+Depth drives visual indentation; `parentId` is used to re-build parent-child context in forms.
+
+### Shared Components
+
+- **`src/components/atoms/`** — `currency-input.tsx`, `select.tsx` (thin wrappers around shadcn primitives)
+- **`src/components/modules/`** — `confirm-dialog.tsx`, `pagination.tsx`, `table-skeleton.tsx` (cross-feature UI)
+- **`src/components/ui/`** — shadcn primitives (Button, Card, Input, Table, etc.) — do not edit these directly
+
+### Key Library Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/api.ts` | `Apis` singleton — server-only fetch wrapper with auth, retry, timeout |
+| `src/lib/constants.ts` | `ROUTE_PERMISSIONS`, `API_ENDPOINTS`, `COOKIES`, `DEFAULT_TIMEOUT_MS` |
+| `src/lib/token-manager.ts` | Cookie read/write/clear for access & refresh tokens |
+| `src/lib/env.ts` | Zod env validation (server-only); `API_URL` defaults to `http://localhost:8000/api/v1` |
+| `src/lib/action-utils.ts` | Generic helpers for server action error handling |
+| `src/lib/logger.ts` | Pino-based logger, level controlled by `LOG_LEVEL` env var |

@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@admin/components/ui/table';
+import { usePermission } from '@admin/modules/auth/context/user.context';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
-import { ProductStatus } from '@lam-thinh-ecommerce/shared';
+import { Permission, ProductStatus } from '@lam-thinh-ecommerce/shared';
 import {
   flexRender,
   getCoreRowModel,
@@ -35,21 +36,16 @@ const STATUS_OPTIONS = [
 interface ProductTableProps {
   data: PaginatedProducts;
   categories: FlatCategory[];
-  canUpdate: boolean;
-  canDelete: boolean;
   onEdit: (product: Product) => void;
 }
 
-export function ProductTable({
-  data,
-  categories,
-  canUpdate,
-  canDelete,
-  onEdit,
-}: ProductTableProps) {
+export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const canUpdate = usePermission(Permission.UPDATE_PRODUCT);
+  const canDelete = usePermission(Permission.DELETE_PRODUCT);
 
   const currentSearch = searchParams.get('search') ?? '';
   const currentStatus = searchParams.get('status') ?? '';

@@ -9,6 +9,9 @@
   "scripts": {
     "debug:api": "pnpm --filter @lam-thinh-ecommerce/api start:debug",
     "dev:all": "pnpm -r run dev",
+    "dev:bg": "bash scripts/dev.sh",
+    "logs:up": "docker compose up -d",
+    "logs:down": "docker compose down",
     "dev:admin": "pnpm --filter @lam-thinh-ecommerce/admin dev",
     "dev:api": "pnpm --filter @lam-thinh-ecommerce/api dev",
     "dev:shared": "pnpm --filter @lam-thinh-ecommerce/shared dev",

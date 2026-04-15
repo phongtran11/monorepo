@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { usePermission } from '@admin/modules/auth/context/user.context';
+import { Permission } from '@lam-thinh-ecommerce/shared';
+import { useMemo, useState } from 'react';
 
 import { CategoryHeader } from '../components/category-header';
 import { CategorySheet } from '../components/category-sheet';
@@ -13,31 +15,24 @@ import {
 
 interface CategoryPageProps {
   categories: Category[];
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
 }
 
-export function CategoryPage({
-  categories,
-  canCreate,
-  canUpdate,
-  canDelete,
-}: CategoryPageProps) {
-  const flatCategories = flattenCategories(categories);
+type SheetState =
+  | { open: false }
+  | { open: true; editCategory: FlatCategory | null };
 
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [editCategory, setEditCategory] = useState<FlatCategory | null>(null);
+export function CategoryPage({ categories }: CategoryPageProps) {
+  const canCreate = usePermission(Permission.CREATE_CATEGORY);
 
-  const openCreate = () => {
-    setEditCategory(null);
-    setSheetOpen(true);
-  };
+  const flatCategories = useMemo(
+    () => flattenCategories(categories),
+    [categories],
+  );
+  const [sheet, setSheet] = useState<SheetState>({ open: false });
 
-  const openEdit = (cat: FlatCategory) => {
-    setEditCategory(cat);
-    setSheetOpen(true);
-  };
+  const openCreate = () => setSheet({ open: true, editCategory: null });
+  const openEdit = (cat: FlatCategory) =>
+    setSheet({ open: true, editCategory: cat });
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,17 +44,14 @@ export function CategoryPage({
 
       <CategoryTable
         categories={categories}
-        canCreate={canCreate}
-        canUpdate={canUpdate}
-        canDelete={canDelete}
         onEdit={openEdit}
         onAddFirst={openCreate}
       />
 
       <CategorySheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        editCategory={editCategory}
+        open={sheet.open}
+        onOpenChange={(open) => !open && setSheet({ open: false })}
+        editCategory={sheet.open ? sheet.editCategory : null}
         allCategories={flatCategories}
       />
     </div>

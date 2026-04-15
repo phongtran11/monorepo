@@ -93,6 +93,11 @@ export class Apis {
       if (userAgent && !headers.has('user-agent')) {
         headers.set('user-agent', userAgent);
       }
+
+      const ipAddress = incoming.get('x-forwarded-for');
+      if (ipAddress && !headers.has('x-forwarded-for')) {
+        headers.set('x-forwarded-for', ipAddress);
+      }
     } catch {
       // outside a Next.js request context (e.g. build time)
     }
@@ -105,6 +110,12 @@ export class Apis {
     requestInit: InternalRequestInit<R>,
     signal: AbortSignal,
   ): Promise<Response> {
+    this.logger.debug(
+      '%s %s %s',
+      requestInit.method,
+      url.toString(),
+      JSON.stringify(this.buildBody(requestInit) ?? {}),
+    );
     return fetch(url, {
       ...requestInit,
       signal,
@@ -160,7 +171,6 @@ export class Apis {
     signal: AbortSignal,
   ): ApiResponse<T> {
     const err = error as { message?: string; name?: string } | null;
-    console.log(err);
     if (
       err?.message ===
       RESPONSE_ERROR_MESSAGES[RESPONSE_ERROR_CODES.REQUEST_TIMEOUT]
@@ -242,9 +252,10 @@ export class Apis {
 
       const body = await this.parseSuccessBody<T>(response, url.toString());
       this.logger.info(
-        '%s Request to %s succeeded in %dms',
+        '%s %s %i in %dms',
         method,
         url.toString(),
+        response.status,
         Math.round(performance.now() - start),
       );
       return body;

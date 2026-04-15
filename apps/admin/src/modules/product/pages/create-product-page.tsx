@@ -1,6 +1,6 @@
 'use client';
 
-import { LSelect } from '@admin/components/atoms';
+import { CurrencyInput, LSelect } from '@admin/components/atoms';
 import { Alert, AlertDescription } from '@admin/components/ui/alert';
 import { Button } from '@admin/components/ui/button';
 import {
@@ -12,11 +12,13 @@ import {
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
-import { cancelUploadAction, ImageUploadField } from '@admin/modules/upload';
+import {
+  cancelUploadAction,
+  MultiImageUploadField,
+} from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductStatus } from '@lam-thinh-ecommerce/shared';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -56,7 +58,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
         categoryId: '',
         shortDescription: '',
         description: '',
-        imageId: null,
+        imageIds: [],
       },
     });
 
@@ -71,14 +73,14 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
         return;
       }
       // Uploaded image was consumed by the API — no need to cancel
-      setValue('imageId', null);
+      setValue('imageIds', []);
       router.push('/products');
     });
   };
 
   const handleCancel = () => {
-    const tempId = getValues('imageId');
-    if (tempId) cancelUploadAction(tempId);
+    const tempIds = getValues('imageIds') ?? [];
+    tempIds.forEach((id) => cancelUploadAction(id));
     router.push('/products');
   };
 
@@ -227,13 +229,13 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
             </CardHeader>
             <CardContent>
               <Controller
-                name="imageId"
+                name="imageIds"
                 control={control}
                 render={({ field }) => (
-                  <ImageUploadField
+                  <MultiImageUploadField
                     isUploading={isUploading}
                     setIsUploading={setIsUploading}
-                    value={field.value ?? ''}
+                    value={field.value ?? []}
                     onChange={field.onChange}
                     disabled={isBusy}
                   />
@@ -270,6 +272,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                       options={STATUS_OPTIONS}
                       name={field.name}
                       invalid={fieldState.invalid}
+                      showEmpty={false}
                     />
                     {fieldState.error && (
                       <FieldError errors={[fieldState.error]} />
@@ -324,13 +327,11 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                     <FieldLabel htmlFor={field.name}>
                       Giá bán <span className="text-destructive">*</span>
                     </FieldLabel>
-                    <Input
-                      {...field}
+                    <CurrencyInput
                       id={field.name}
-                      type="number"
-                      min={0}
-                      step={1000}
-                      placeholder="250000"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="250.000"
                       aria-invalid={fieldState.invalid}
                       disabled={isBusy}
                     />
@@ -347,19 +348,11 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor={field.name}>Giá gốc</FieldLabel>
-                    <Input
-                      {...field}
+                    <CurrencyInput
                       id={field.name}
-                      type="number"
-                      min={0}
-                      step={1000}
-                      placeholder="300000"
-                      value={field.value ?? ''}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === '' ? null : e.target.value,
-                        )
-                      }
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      placeholder="300.000"
                       aria-invalid={fieldState.invalid}
                       disabled={isBusy}
                     />

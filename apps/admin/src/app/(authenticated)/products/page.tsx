@@ -1,14 +1,11 @@
 import { apis } from '@admin/lib/api';
-import { API_ENDPOINTS, COOKIES } from '@admin/lib/constants';
+import { API_ENDPOINTS } from '@admin/lib/constants';
 import { Category } from '@admin/modules/category/types/category.type';
 import { ProductPage } from '@admin/modules/product';
 import {
   PaginatedProducts,
   ProductQuery,
 } from '@admin/modules/product/types/product.type';
-import { decodeJwtPayload } from '@admin/proxy/jwt';
-import { Permission, RolePermissionsMap } from '@lam-thinh-ecommerce/shared';
-import { cookies } from 'next/headers';
 
 interface ProductsRouteProps {
   searchParams: Promise<ProductQuery>;
@@ -29,10 +26,9 @@ export default async function ProductsRoute({
     ? `${API_ENDPOINTS.PRODUCTS.BASE}?${query.toString()}`
     : API_ENDPOINTS.PRODUCTS.BASE;
 
-  const [productsResult, categoriesResult, cookieStore] = await Promise.all([
+  const [productsResult, categoriesResult] = await Promise.all([
     apis.get<PaginatedProducts>(endpoint),
     apis.get<Category[]>(API_ENDPOINTS.CATEGORIES.BASE),
-    cookies(),
   ]);
 
   const data: PaginatedProducts =
@@ -45,19 +41,5 @@ export default async function ProductsRoute({
       ? categoriesResult.data
       : [];
 
-  const accessToken = cookieStore.get(COOKIES.ACCESS_TOKEN)?.value;
-  const payload = accessToken ? decodeJwtPayload(accessToken) : null;
-  const permissions: Permission[] = payload
-    ? RolePermissionsMap[payload.role]
-    : [];
-
-  return (
-    <ProductPage
-      data={data}
-      categories={categories}
-      canCreate={permissions.includes(Permission.CREATE_PRODUCT)}
-      canUpdate={permissions.includes(Permission.UPDATE_PRODUCT)}
-      canDelete={permissions.includes(Permission.DELETE_PRODUCT)}
-    />
-  );
+  return <ProductPage data={data} categories={categories} />;
 }
