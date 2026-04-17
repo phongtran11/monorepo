@@ -1,0 +1,30 @@
+{
+  "name": "@lam-thinh-ecommerce/crawler",
+  "version": "1.0.0",
+  "description": "Web crawler for ANT YOKO product data",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "fs-extra": "^11.2.0",
+    "playwright": "^1.43.0",
+    "sharp": "^0.33.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.12.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
