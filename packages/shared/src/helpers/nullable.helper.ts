@@ -1,6 +1,6 @@
 /**
- * Normalizes an optional field value for PATCH payloads where the backend
- * distinguishes three states:
+ * Normalizes an optional/nullable field value for create and update payloads
+ * where the backend distinguishes three states:
  *
  * - `undefined` → field absent from payload → backend leaves the field unchanged
  * - `null`      → explicit clear signal     → backend sets the field to null
@@ -14,12 +14,12 @@
  *          or the original value if it should be updated.
  *
  * @example
- * toPatchField(undefined)   // → undefined  (omitted from JSON, backend skips it)
- * toPatchField(null)        // → null       (backend clears the field)
- * toPatchField('')          // → null       (treated as an explicit clear)
- * toPatchField('some-uuid') // → 'some-uuid'
+ * toNullableField(undefined)   // → undefined  (omitted from JSON, backend skips it)
+ * toNullableField(null)        // → null       (backend clears the field)
+ * toNullableField('')          // → null       (treated as an explicit clear)
+ * toNullableField('some-uuid') // → 'some-uuid'
  */
-export function toPatchField<T>(
+export function toNullableField<T>(
   value: T | null | undefined,
 ): T | null | undefined {
   if (value === undefined) return undefined;

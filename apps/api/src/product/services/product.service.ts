@@ -2,6 +2,7 @@ import { Category } from '@api/category/entities/category.entity';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
 import {
+  BulkDeleteProductDto,
   CreateProductDto,
   ProductQueryDto,
   UpdateProductDto,
@@ -17,7 +18,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 
 /**
  * Result of moving a temp-uploaded image to its permanent location.
@@ -215,7 +216,7 @@ export class ProductService {
   ): Promise<Product> {
     // Step 1: Pre-process new images (if any) BEFORE transaction
     const movedImages =
-      dto.imageIds !== undefined
+      dto.imageIds && dto.imageIds.length > 0
         ? await this.consumeAndMoveImages(dto.imageIds, userId)
         : [];
 
@@ -249,7 +250,7 @@ export class ProductService {
           product.slug = newSlug;
         }
 
-        if (dto.sku !== undefined && dto.sku !== product.sku) {
+        if (dto.sku && dto.sku !== product.sku) {
           const existing = await productRepo.findOne({
             where: { sku: dto.sku },
             withDeleted: true,
@@ -260,29 +261,7 @@ export class ProductService {
           product.sku = dto.sku;
         }
 
-        if (dto.shortDescription !== undefined) {
-          product.shortDescription = dto.shortDescription;
-        }
-        if (dto.description !== undefined) {
-          product.description = dto.description;
-        }
-        if (dto.price !== undefined) {
-          product.price = dto.price;
-        }
-        if (dto.compareAtPrice !== undefined) {
-          product.compareAtPrice = dto.compareAtPrice;
-        }
-        if (dto.stock !== undefined) {
-          product.stock = dto.stock;
-        }
-        if (dto.status !== undefined) {
-          product.status = dto.status;
-        }
-
-        if (
-          dto.categoryId !== undefined &&
-          dto.categoryId !== product.categoryId
-        ) {
+        if (dto.categoryId && dto.categoryId !== product.categoryId) {
           const category = await categoryRepo.findOne({
             where: { id: dto.categoryId },
           });
@@ -293,7 +272,7 @@ export class ProductService {
         }
 
         // Replace image set when imageIds is explicitly provided
-        if (dto.imageIds !== undefined) {
+        if (dto.imageIds && dto.imageIds.length > 0) {
           if (product.images && product.images.length > 0) {
             for (const oldImage of product.images) {
               oldImagePublicIds.push(oldImage.imagePublicId);
@@ -333,6 +312,17 @@ export class ProductService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Soft-removes multiple products in a single call.
+   *
+   * @param dto - The DTO containing the list of product IDs to delete.
+   */
+  async bulkRemove(dto: BulkDeleteProductDto): Promise<void> {
+    const products = await this.productRepository.findBy({ id: In(dto.ids) });
+    if (products.length === 0) return;
+    await this.productRepository.softRemove(products);
   }
 
   /**

@@ -29,14 +29,14 @@ export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus];
 ### Role (`src/constants/role.constant.ts`)
 
 ```typescript
-Role = { CUSTOMER: 1, STAFF: 2, ADMIN: 3 }
-ROLE_LABELS = { 1: 'User', 2: 'Staff', 3: 'Super Admin' }
+Role = { CUSTOMER: 1, STAFF: 2, ADMIN: 3 };
+ROLE_LABELS = { 1: 'User', 2: 'Staff', 3: 'Super Admin' };
 ```
 
 ### AccountStatus (`src/constants/account-status.constant.ts`)
 
 ```typescript
-AccountStatus = { INACTIVE: 1, ACTIVE: 2, BANNED: 3 }
+AccountStatus = { INACTIVE: 1, ACTIVE: 2, BANNED: 3 };
 // INACTIVE = requires verification, BANNED = blocked by admin
 ```
 
@@ -44,24 +44,35 @@ AccountStatus = { INACTIVE: 1, ACTIVE: 2, BANNED: 3 }
 
 ```typescript
 Permission = {
-  READ_USERS, CREATE_USER, UPDATE_USER, DELETE_USER,
-  READ_ORDERS, UPDATE_ORDER,
-  CREATE_CATEGORY, READ_CATEGORIES, UPDATE_CATEGORY, DELETE_CATEGORY,
-  CREATE_PRODUCT, READ_PRODUCTS, UPDATE_PRODUCT, DELETE_PRODUCT,
+  READ_USERS,
+  CREATE_USER,
+  UPDATE_USER,
+  DELETE_USER,
+  READ_ORDERS,
+  UPDATE_ORDER,
+  CREATE_CATEGORY,
+  READ_CATEGORIES,
+  UPDATE_CATEGORY,
+  DELETE_CATEGORY,
+  CREATE_PRODUCT,
+  READ_PRODUCTS,
+  UPDATE_PRODUCT,
+  DELETE_PRODUCT,
   MANAGE_SYSTEM,
-}
+};
 // Values are 'read:users', 'create:category', etc.
 ```
 
 ### ProductStatus (`src/constants/product-status.constant.ts`)
 
 ```typescript
-ProductStatus = { DRAFT: 'draft', ACTIVE: 'active', ARCHIVED: 'archived' }
+ProductStatus = { DRAFT: 'draft', ACTIVE: 'active', ARCHIVED: 'archived' };
 ```
 
 ### RolePermissionsMap (`src/constants/role-permission-mapping.constant.ts`)
 
 Maps each `Role` to its allowed `Permission[]`:
+
 - `ADMIN` — all permissions
 - `STAFF` — all except user management and `MANAGE_SYSTEM`
 - `CUSTOMER` — `READ_CATEGORIES`, `READ_PRODUCTS` only
@@ -103,9 +114,10 @@ Converts text to a URL-safe slug. Handles Vietnamese characters (đ, diacritics)
 
 Formats numbers as localized currency strings. Defaults to VND / vi-VN.
 
-### `toPatchField<T>(value)` (`src/helpers/patch.helper.ts`)
+### `toNullableField<T>(value)` (`src/helpers/nullable.helper.ts`)
 
 Normalises form values for PATCH payloads with three-state semantics:
+
 - `undefined` → field absent (backend skips the field)
 - `null` → field cleared (backend sets to null)
 - `T` → new value (backend updates)

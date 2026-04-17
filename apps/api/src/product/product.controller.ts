@@ -3,6 +3,7 @@ import type { AuthUser } from '@api/auth/jwt.type';
 import { ApiResponseDto, ApiResponseOf, Permissions } from '@api/common';
 import { CurrentUser } from '@api/common/decorator';
 import {
+  BulkDeleteProductDto,
   CreateProductDto,
   PaginatedProductResponseDto,
   ProductQueryDto,
@@ -123,6 +124,29 @@ export class ProductController {
   ): Promise<ApiResponseDto<ProductResponseDto>> {
     const product = await this.productService.update(id, dto, user.id);
     return ApiResponseDto.success(plainToInstance(ProductResponseDto, product));
+  }
+
+  /**
+   * Soft-removes multiple products in a single request.
+   *
+   * @param dto - The DTO containing the list of product IDs to delete.
+   * @returns A success response with null data.
+   */
+  @Delete('bulk')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions(Permission.DELETE_PRODUCT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk soft-delete products' })
+  @ApiOkResponse({
+    type: ApiResponseDto,
+    description: 'Successfully removed products',
+  })
+  async bulkRemove(
+    @Body() dto: BulkDeleteProductDto,
+  ): Promise<ApiResponseDto<null>> {
+    await this.productService.bulkRemove(dto);
+    return ApiResponseDto.success(null);
   }
 
   /**

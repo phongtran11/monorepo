@@ -53,6 +53,7 @@ Context for the NestJS backend (`apps/api`).
 ### Session Entity & Rotation
 
 `Session` entity tracks every refresh token by JTI. Fields beyond basics:
+
 - `chainId` — shared by all tokens in a rotation chain; revoking one chain revokes all
 - `replayPayload` / `replayExpiresAt` — idempotent refresh: if a client replays an already-rotated token within the grace period, the rotated token is returned instead of an error
 - `revokedAt` — set when the session is explicitly revoked (logout / suspicious activity)
@@ -159,6 +160,7 @@ export class BulkDeleteCategoryDto {
 ## Category Tree
 
 Categories use TypeORM `@Tree('materialized-path')`:
+
 - `@TreeParent()` → `parent: Category | null`
 - `@TreeChildren()` → `children: Category[]`
 - `displayOrder` field controls sibling order; services sort recursively after retrieval

@@ -88,11 +88,10 @@ export class CreateProductDto {
   /**
    * Current stock on hand.
    */
-  @ApiPropertyOptional({ example: 100, description: 'Current stock on hand.' })
+  @ApiProperty({ example: 100, description: 'Current stock on hand.' })
   @IsInt()
   @Min(0)
-  @IsOptional()
-  stock?: number;
+  stock: number;
 
   /**
    * Lifecycle status of the product.
