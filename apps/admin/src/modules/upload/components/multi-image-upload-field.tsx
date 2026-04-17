@@ -1,16 +1,14 @@
 'use client';
 
 import { Button } from '@admin/components/ui/button';
+import { ImageViewer } from '@admin/components/modules/image-viewer';
 import { cn } from '@admin/lib/utils';
 import { Loader2, Plus, X } from 'lucide-react';
 import Image from 'next/image';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import {
-  cancelUploadAction,
-  getUploadSignatureAction,
-  registerTempUploadAction,
-} from '../actions';
+import { cancelUploadAction } from '../actions';
+import { uploadToCloudinary } from '../utils/cloudinary-upload';
 
 interface MultiImageUploadFieldProps {
   /** Array of tempIds currently staged in the form. */
@@ -22,6 +20,8 @@ interface MultiImageUploadFieldProps {
   setIsUploading: (v: boolean) => void;
   /** Maximum number of images allowed. Defaults to 10. */
   maxImages?: number;
+  /** Map of existing image ID → URL for images already saved in the backend */
+  existingImages?: Record<string, string>;
 }
 
 export function MultiImageUploadField({
@@ -31,18 +31,28 @@ export function MultiImageUploadField({
   isUploading,
   setIsUploading,
   maxImages = 10,
+  existingImages = {},
 }: MultiImageUploadFieldProps) {
   /**
    * Map from tempId → preview URL. Updated progressively as each concurrent
    * upload completes so thumbnails appear one-by-one rather than all at once.
    */
-  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [previews, setPreviews] =
+    useState<Record<string, string>>(existingImages);
+
+  // Initialize previews with existing image URLs when component mounts or existingImages changes
+  useEffect(() => {
+    if (Object.keys(existingImages).length > 0) {
+      setPreviews((prev) => ({ ...existingImages, ...prev }));
+    }
+  }, [existingImages]);
   /**
    * Number of uploads currently in-flight. Drives the skeleton placeholder
    * tiles so the user sees something happening immediately after picking files.
    */
   const [uploadingCount, setUploadingCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [viewingSrc, setViewingSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,48 +76,14 @@ export function MultiImageUploadField({
     await Promise.all(
       files.slice(0, slots).map(async (file) => {
         try {
-          // Step 1: get a short-lived Cloudinary signature
-          const sigResult = await getUploadSignatureAction();
-          if (!sigResult.success || !sigResult.data) {
+          const result = await uploadToCloudinary(file);
+
+          if (!result) {
             setError('Tải ảnh thất bại. Vui lòng thử lại.');
             return;
           }
 
-          const { signature, timestamp, apiKey, cloudName, folder, tags } =
-            sigResult.data;
-
-          // Step 2: upload directly from the browser to Cloudinary
-          const cloudinaryForm = new FormData();
-          cloudinaryForm.append('file', file);
-          cloudinaryForm.append('api_key', apiKey);
-          cloudinaryForm.append('timestamp', String(timestamp));
-          cloudinaryForm.append('signature', signature);
-          cloudinaryForm.append('folder', folder);
-          cloudinaryForm.append('tags', tags);
-
-          const cloudRes = await fetch(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            { method: 'POST', body: cloudinaryForm },
-          );
-
-          if (!cloudRes.ok) {
-            setError('Tải ảnh thất bại. Vui lòng thử lại.');
-            return;
-          }
-
-          const { public_id, secure_url } = (await cloudRes.json()) as {
-            public_id: string;
-            secure_url: string;
-          };
-
-          // Step 3: register with the backend to get a tempId
-          const result = await registerTempUploadAction(public_id, secure_url);
-          if (!result.success || !result.data) {
-            setError('Tải ảnh thất bại. Vui lòng thử lại.');
-            return;
-          }
-
-          const { tempId, tempUrl } = result.data;
+          const { tempId, tempUrl } = result;
 
           // Update preview map immediately so this thumbnail appears
           // without waiting for the other concurrent uploads to finish.
@@ -143,15 +119,23 @@ export function MultiImageUploadField({
         {/* Completed uploads */}
         {value.map((tempId) => (
           <div key={tempId} className="relative size-24 shrink-0">
-            <div className="relative size-24 overflow-hidden rounded-lg border">
+            <button
+              type="button"
+              onClick={() =>
+                previews[tempId] && setViewingSrc(previews[tempId])
+              }
+              className="relative size-24 cursor-zoom-in overflow-hidden rounded-lg border transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Xem ảnh"
+            >
               <Image
                 src={previews[tempId]}
                 alt="Product image preview"
                 fill
                 className="object-cover"
                 sizes="96px"
+                priority
               />
-            </div>
+            </button>
             <Button
               type="button"
               variant="destructive"
@@ -165,6 +149,15 @@ export function MultiImageUploadField({
             </Button>
           </div>
         ))}
+
+        <ImageViewer
+          open={!!viewingSrc}
+          onOpenChange={(open) => {
+            if (!open) setViewingSrc(null);
+          }}
+          src={viewingSrc ?? ''}
+          alt="Product image preview"
+        />
 
         {/* Skeleton placeholders — one per in-flight upload */}
         {Array.from({ length: uploadingCount }).map((_, i) => (

@@ -2,6 +2,7 @@
 
 import { LSelect } from '@admin/components/atoms';
 import { Pagination } from '@admin/components/modules';
+import { Button } from '@admin/components/ui/button';
 import { Card, CardContent } from '@admin/components/ui/card';
 import { Input } from '@admin/components/ui/input';
 import {
@@ -18,13 +19,15 @@ import { Permission, ProductStatus } from '@lam-thinh-ecommerce/shared';
 import {
   flexRender,
   getCoreRowModel,
+  RowSelectionState,
   useReactTable,
 } from '@tanstack/react-table';
-import { Package, Search } from 'lucide-react';
+import { Package, Search, Trash2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { PaginatedProducts, Product } from '../types/product.type';
+import { BulkDeleteProductDialog } from './bulk-delete-product-dialog';
 import { ProductColumnMeta, productColumns } from './product-columns';
 
 const STATUS_OPTIONS = [
@@ -46,6 +49,9 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
 
   const canUpdate = usePermission(Permission.UPDATE_PRODUCT);
   const canDelete = usePermission(Permission.DELETE_PRODUCT);
+
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
   const currentSearch = searchParams.get('search') ?? '';
   const currentStatus = searchParams.get('status') ?? '';
@@ -87,8 +93,14 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
     data: data.items,
     columns: productColumns,
     getCoreRowModel: getCoreRowModel(),
+    onRowSelectionChange: setRowSelection,
+    state: { rowSelection },
     meta,
   });
+
+  const selectedIds = table
+    .getSelectedRowModel()
+    .flatRows.map((r) => r.original.id);
 
   const totalPages = Math.ceil(data.total / data.limit);
 
@@ -129,6 +141,27 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
         />
       </div>
 
+      {/* Bulk-delete bar */}
+      {canDelete && selectedIds.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2">
+          <span className="text-sm text-muted-foreground">
+            Đã chọn{' '}
+            <span className="font-medium text-foreground">
+              {selectedIds.length}
+            </span>{' '}
+            sản phẩm
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setBulkDialogOpen(true)}
+          >
+            <Trash2 data-icon="inline-start" />
+            Xóa đã chọn
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -157,7 +190,10 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
               </TableHeader>
               <TableBody>
                 {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() ? 'selected' : undefined}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(
@@ -185,6 +221,13 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
           itemLabel="sản phẩm"
         />
       )}
+
+      <BulkDeleteProductDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        selectedIds={selectedIds}
+        onSuccess={() => setRowSelection({})}
+      />
     </div>
   );
 }

@@ -24,8 +24,9 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-import { createProductAction } from '../actions';
+import { updateProductAction } from '../actions';
 import { ProductSchema, productSchema } from '../schemas/product.schema';
+import { Product } from '../types/product.type';
 
 const STATUS_OPTIONS = [
   { value: ProductStatus.DRAFT, label: 'Nháp' },
@@ -33,33 +34,32 @@ const STATUS_OPTIONS = [
   { value: ProductStatus.ARCHIVED, label: 'Lưu trữ' },
 ];
 
-const FORM_ID = 'create-product-form';
+const FORM_ID = 'edit-product-form';
 
-interface CreateProductPageProps {
+interface EditProductPageProps {
+  product: Product;
   categories: FlatCategory[];
 }
 
-export function CreateProductPage({ categories }: CreateProductPageProps) {
+export function EditProductPage({ product, categories }: EditProductPageProps) {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
+
+  // Create a map of existing image IDs to their URLs for preview
+  const existingImageMap = product.images.reduce(
+    (acc, img) => ({ ...acc, [img.id]: img.imageUrl }),
+    {},
+  );
 
   const { control, handleSubmit, getValues, setValue, formState } =
     useForm<ProductSchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(productSchema),
       defaultValues: {
-        name: '',
-        sku: '',
-        price: 0,
-        compareAtPrice: null,
-        stock: 0,
-        status: ProductStatus.DRAFT,
-        categoryId: '',
-        shortDescription: '',
-        description: '',
-        imageIds: [],
+        ...product,
+        imageIds: product.images.map((img) => img.id),
       },
     });
 
@@ -68,12 +68,12 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
   const onSubmit = (data: ProductSchema) => {
     setErrorMessage(null);
     startTransition(async () => {
-      const result = await createProductAction(data);
+      const result = await updateProductAction(product.id, data);
+      console.log(result);
       if (!result.success) {
         setErrorMessage(result.message);
         return;
       }
-      // Uploaded image was consumed by the API — no need to cancel
       setValue('imageIds', []);
       router.push('/products');
     });
@@ -82,7 +82,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
   const handleCancel = () => {
     const tempIds = getValues('imageIds') ?? [];
     tempIds.forEach((id) => cancelUploadAction(id));
-    router.push('/products');
+    router.push(`/products/${product.id}`);
   };
 
   const categoryOptions = categories.map((c) => ({
@@ -105,7 +105,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
           >
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-xl font-semibold">Thêm sản phẩm</h1>
+          <h1 className="text-xl font-semibold">Sửa sản phẩm</h1>
         </div>
         <Button
           type="submit"
@@ -116,7 +116,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
           {isPending && (
             <Loader2 data-icon="inline-start" className="animate-spin" />
           )}
-          Lưu
+          Lưu thay đổi
         </Button>
       </div>
 
@@ -187,6 +187,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                     <textarea
                       {...field}
                       id={field.name}
+                      value={field.value ?? ''}
                       rows={3}
                       placeholder="Mô tả ngắn hiển thị trên thẻ sản phẩm..."
                       aria-invalid={fieldState.invalid}
@@ -239,6 +240,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                     value={field.value ?? []}
                     onChange={field.onChange}
                     disabled={isBusy}
+                    existingImages={existingImageMap}
                   />
                 )}
               />

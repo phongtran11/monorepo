@@ -6,11 +6,8 @@ import { Camera, Clipboard, ImageIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  cancelUploadAction,
-  getUploadSignatureAction,
-  registerTempUploadAction,
-} from '../actions';
+import { cancelUploadAction } from '../actions';
+import { uploadToCloudinary } from '../utils/cloudinary-upload';
 
 interface ImageUploadFieldProps {
   /** The current tempId value from the form (empty string = no staged upload). */
@@ -65,59 +62,18 @@ export function ImageUploadField({
       setError(null);
       onChange('');
 
-      // Step 1: get a short-lived Cloudinary signature from the server
-      const sigResult = await getUploadSignatureAction();
-      if (!sigResult.success || !sigResult.data) {
-        setIsUploading(false);
-        setError('Tải ảnh thất bại. Vui lòng thử lại.');
-        return;
-      }
-
-      const { signature, timestamp, apiKey, cloudName, folder, tags } =
-        sigResult.data;
-
-      // Step 2: upload the file directly from the browser to Cloudinary
-      const cloudinaryForm = new FormData();
-      cloudinaryForm.append('file', file);
-      cloudinaryForm.append('api_key', apiKey);
-      cloudinaryForm.append('timestamp', String(timestamp));
-      cloudinaryForm.append('signature', signature);
-      cloudinaryForm.append('folder', folder);
-      cloudinaryForm.append('tags', tags);
-
-      const cloudRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: 'POST', body: cloudinaryForm },
-      );
-
-      if (!cloudRes.ok) {
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setError('Tải ảnh thất bại. Vui lòng thử lại.');
-        return;
-      }
-
-      const { public_id, secure_url } = (await cloudRes.json()) as {
-        public_id: string;
-        secure_url: string;
-      };
-
-      // Step 3: register the uploaded asset with the backend to get a tempId
-      const result = await registerTempUploadAction(public_id, secure_url);
+      const result = await uploadToCloudinary(file);
 
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
-      if (!result.success || !result.data) {
+      if (!result) {
         setError('Tải ảnh thất bại. Vui lòng thử lại.');
         return;
       }
 
-      setStaged({
-        tempId: result.data.tempId,
-        previewUrl: result.data.tempUrl,
-      });
-      onChange(result.data.tempId);
+      setStaged({ tempId: result.tempId, previewUrl: result.tempUrl });
+      onChange(result.tempId);
     },
     [disabled, isUploading, staged, onChange, setIsUploading],
   );
@@ -192,6 +148,7 @@ export function ImageUploadField({
                   fill
                   className="object-conatain"
                   sizes="96px"
+                  priority
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
                   <Camera className="size-5 text-white" />

@@ -25,7 +25,6 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { control, handleSubmit, formState } = useForm<LoginSchema>({
-    // @ts-expect-error zodResolver generic mismatch with current zod version
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',

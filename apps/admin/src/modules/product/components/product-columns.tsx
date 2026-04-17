@@ -1,10 +1,12 @@
 'use client';
 
 import { Button } from '@admin/components/ui/button';
+import { Checkbox } from '@admin/components/ui/checkbox';
 import { formatVND } from '@lam-thinh-ecommerce/shared';
 import { ColumnDef } from '@tanstack/react-table';
 import { Pencil } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 import { Product, PRODUCT_STATUS_CONFIG } from '../types/product.type';
 
@@ -15,6 +17,41 @@ export interface ProductColumnMeta {
 }
 
 export const productColumns: ColumnDef<Product>[] = [
+  {
+    id: 'select',
+    header: ({ table }) => {
+      const { canDelete } = table.options.meta as ProductColumnMeta;
+      if (!canDelete) return null;
+      return (
+        <Checkbox
+          checked={
+            table.getIsAllRowsSelected()
+              ? true
+              : table.getIsSomeRowsSelected()
+                ? 'indeterminate'
+                : false
+          }
+          onCheckedChange={(checked) =>
+            table.toggleAllRowsSelected(checked === true)
+          }
+          aria-label="Chọn tất cả"
+        />
+      );
+    },
+    cell: ({ row, table }) => {
+      const { canDelete } = table.options.meta as ProductColumnMeta;
+      if (!canDelete) return null;
+      return (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+          aria-label="Chọn hàng"
+        />
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     id: 'product',
     header: 'Sản phẩm',
@@ -38,7 +75,12 @@ export const productColumns: ColumnDef<Product>[] = [
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{product.name}</p>
+            <Link
+              href={`/products/${product.id}`}
+              className="truncate text-sm font-medium hover:underline"
+            >
+              {product.name}
+            </Link>
             <p className="truncate text-xs text-muted-foreground">
               {product.sku}
             </p>

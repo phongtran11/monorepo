@@ -92,11 +92,11 @@ Depth drives visual indentation; `parentId` is used to re-build parent-child con
 
 ### Key Library Files
 
-| File | Purpose |
-|------|---------|
-| `src/lib/api.ts` | `Apis` singleton — server-only fetch wrapper with auth, retry, timeout |
-| `src/lib/constants.ts` | `ROUTE_PERMISSIONS`, `API_ENDPOINTS`, `COOKIES`, `DEFAULT_TIMEOUT_MS` |
-| `src/lib/token-manager.ts` | Cookie read/write/clear for access & refresh tokens |
-| `src/lib/env.ts` | Zod env validation (server-only); `API_URL` defaults to `http://localhost:8000/api/v1` |
-| `src/lib/action-utils.ts` | Generic helpers for server action error handling |
-| `src/lib/logger.ts` | Pino-based logger, level controlled by `LOG_LEVEL` env var |
+| File                       | Purpose                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `src/lib/api.ts`           | `Apis` singleton — server-only fetch wrapper with auth, retry, timeout                 |
+| `src/lib/constants.ts`     | `ROUTE_PERMISSIONS`, `API_ENDPOINTS`, `COOKIES`, `DEFAULT_TIMEOUT_MS`                  |
+| `src/lib/token-manager.ts` | Cookie read/write/clear for access & refresh tokens                                    |
+| `src/lib/env.ts`           | Zod env validation (server-only); `API_URL` defaults to `http://localhost:8000/api/v1` |
+| `src/lib/action-utils.ts`  | Generic helpers for server action error handling                                       |
+| `src/lib/logger.ts`        | Pino-based logger, level controlled by `LOG_LEVEL` env var                             |

@@ -19,8 +19,8 @@ export function ProductPage({ data, categories }: ProductPageProps) {
   const router = useRouter();
   const flatCategories = flattenCategories(categories);
 
-  function handleEdit(_product: Product) {
-    // TODO: navigate to /products/:id/edit
+  function handleEdit(product: Product) {
+    router.push(`/products/${product.id}/edit`);
   }
 
   return (

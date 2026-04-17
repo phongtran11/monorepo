@@ -114,7 +114,7 @@ export class Apis {
       '%s %s %s',
       requestInit.method,
       url.toString(),
-      JSON.stringify(this.buildBody(requestInit) ?? {}),
+      this.buildBody(requestInit) ?? '{}',
     );
     return fetch(url, {
       ...requestInit,

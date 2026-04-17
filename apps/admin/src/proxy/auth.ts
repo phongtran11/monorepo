@@ -2,7 +2,6 @@ import {
   ADMIN_ALLOWED_ROLES,
   API_ENDPOINTS,
   COOKIES,
-  ROUTE_PERMISSIONS,
 } from '@admin/lib/constants';
 import { env } from '@admin/lib/env';
 import {
@@ -14,6 +13,7 @@ import {
 import { NextRequest, NextResponse } from 'next/server';
 
 import { decodeJwtPayload } from './jwt';
+import { ROUTES } from '@admin/lib/routes';
 
 async function refreshTokens(refreshToken: string): Promise<TokenPair | null> {
   try {
@@ -55,9 +55,9 @@ function hasRouteAccess(
 ): boolean {
   const userPermissions = RolePermissionsMap[role];
 
-  for (const [prefix, required] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (pathname.startsWith(prefix)) {
-      return required.every((p) => userPermissions.includes(p));
+  for (const route of ROUTES) {
+    if (pathname.startsWith(route.path)) {
+      return route.permissions.every((p) => userPermissions.includes(p));
     }
   }
 
