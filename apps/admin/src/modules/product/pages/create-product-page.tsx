@@ -13,10 +13,7 @@ import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { RichTextEditor } from '@admin/components/ui/rich-text-editor';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
-import {
-  cancelUploadAction,
-  MultiImageUploadField,
-} from '@admin/modules/upload';
+import { MultiImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductStatus } from '@lam-thinh-ecommerce/shared';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -45,8 +42,8 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
 
-  const { control, handleSubmit, getValues, setValue, formState } =
-    useForm<ProductSchema>({
+  const { control, handleSubmit, setValue, formState } = useForm<ProductSchema>(
+    {
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(productSchema),
       defaultValues: {
@@ -61,7 +58,8 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
         description: '',
         imageIds: [],
       },
-    });
+    },
+  );
 
   const isBusy = isPending || isUploading || formState.isSubmitting;
 
@@ -80,8 +78,6 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
   };
 
   const handleCancel = () => {
-    const tempIds = getValues('imageIds') ?? [];
-    tempIds.forEach((id) => cancelUploadAction(id));
     router.push('/products');
   };
 

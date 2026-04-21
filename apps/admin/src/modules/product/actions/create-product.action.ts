@@ -1,13 +1,12 @@
 'use server';
 
+import { withRevalidate } from '@admin/lib/action-utils';
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS } from '@admin/lib/constants';
-import { revalidatePath } from 'next/cache';
+import { toNullableField } from '@lam-thinh-ecommerce/shared';
 
 import { ProductSchema } from '../schemas/product.schema';
 import { Product } from '../types/product.type';
-import { toNullableField } from '@lam-thinh-ecommerce/shared';
-import { withRevalidate } from '@admin/lib/action-utils';
 
 export async function createProductAction(data: ProductSchema) {
   return withRevalidate('products', () =>

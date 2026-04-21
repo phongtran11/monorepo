@@ -251,6 +251,7 @@ export class Apis {
       }
 
       const body = await this.parseSuccessBody<T>(response, url.toString());
+
       this.logger.info(
         '%s %s %i in %dms',
         method,

@@ -57,5 +57,5 @@ export class CreateCategoryDto {
   })
   @IsString()
   @IsOptional()
-  imageId?: string;
+  imageId?: string | null;
 }

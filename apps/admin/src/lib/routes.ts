@@ -82,11 +82,17 @@ export function getBreadcrumbs(pathname: string): Array<{
 
     // Pattern match (handles :id tokens)
     if (!route) {
-      route = ROUTES.find((r) => r.path !== '/' && matchRoute(r.path, currentPath));
+      route = ROUTES.find(
+        (r) => r.path !== '/' && matchRoute(r.path, currentPath),
+      );
     }
 
     if (route) {
-      breadcrumbs.push({ label: route.label, href: currentPath, icon: route.icon });
+      breadcrumbs.push({
+        label: route.label,
+        href: currentPath,
+        icon: route.icon,
+      });
     } else {
       breadcrumbs.push({
         label: segments[i].charAt(0).toUpperCase() + segments[i].slice(1),

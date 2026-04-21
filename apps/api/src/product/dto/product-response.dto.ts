@@ -3,35 +3,30 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude, Expose, Type } from 'class-transformer';
 
 /**
- * Data transfer object for a single product image in responses.
+ * Data transfer object for a single image in product responses.
  */
 @Exclude()
 export class ProductImageResponseDto {
   /**
-   * Unique identifier of the product image.
+   * Unique identifier of the image record.
+   * Use this as the imageId when submitting edit forms.
    */
   @ApiProperty({ example: 'uuid' })
   @Expose()
   id: string;
 
   /**
-   * Secure URL of the image.
+   * Secure URL of the image for display.
    */
   @ApiProperty({
-    example: 'https://res.cloudinary.com/demo/image/upload/v1/sample.jpg',
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1/uploads/sample.jpg',
   })
   @Expose()
-  imageUrl: string;
+  secureUrl: string;
 
   /**
-   * Public ID of the image in Cloudinary.
-   */
-  @ApiProperty({ example: 'uploads/product/2026-04/abc' })
-  @Expose()
-  imagePublicId: string;
-
-  /**
-   * Display order within the product's gallery.
+   * Display order within the product's gallery (0 = primary image).
    */
   @ApiProperty({ example: 0 })
   @Expose()
@@ -121,7 +116,7 @@ export class ProductResponseDto {
   categoryId: string;
 
   /**
-   * Images attached to the product.
+   * Images attached to the product, ordered by sortOrder.
    */
   @ApiProperty({ type: () => ProductImageResponseDto, isArray: true })
   @Expose()

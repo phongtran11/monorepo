@@ -9,8 +9,7 @@ export type Category = {
   name: string;
   slug: string;
   displayOrder: number;
-  imageUrl: string | null;
-  imagePublicId: string | null;
+  image: { id: string; secureUrl: string } | null;
   children: Category[];
   createdAt: string;
   updatedAt: string;

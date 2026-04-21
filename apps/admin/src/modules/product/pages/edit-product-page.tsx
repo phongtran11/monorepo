@@ -13,10 +13,7 @@ import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { RichTextEditor } from '@admin/components/ui/rich-text-editor';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
-import {
-  cancelUploadAction,
-  MultiImageUploadField,
-} from '@admin/modules/upload';
+import { MultiImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProductStatus } from '@lam-thinh-ecommerce/shared';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -49,19 +46,20 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
 
   // Create a map of existing image IDs to their URLs for preview
   const existingImageMap = product.images.reduce(
-    (acc, img) => ({ ...acc, [img.id]: img.imageUrl }),
+    (acc, img) => ({ ...acc, [img.id]: img.secureUrl }),
     {},
   );
 
-  const { control, handleSubmit, getValues, setValue, formState } =
-    useForm<ProductSchema>({
+  const { control, handleSubmit, setValue, formState } = useForm<ProductSchema>(
+    {
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(productSchema),
       defaultValues: {
         ...product,
         imageIds: product.images.map((img) => img.id),
       },
-    });
+    },
+  );
 
   const isBusy = isPending || isUploading || formState.isSubmitting;
 
@@ -69,7 +67,6 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
     setErrorMessage(null);
     startTransition(async () => {
       const result = await updateProductAction(product.id, data);
-      console.log(result);
       if (!result.success) {
         setErrorMessage(result.message);
         return;
@@ -80,8 +77,6 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
   };
 
   const handleCancel = () => {
-    const tempIds = getValues('imageIds') ?? [];
-    tempIds.forEach((id) => cancelUploadAction(id));
     router.push(`/products/${product.id}`);
   };
 

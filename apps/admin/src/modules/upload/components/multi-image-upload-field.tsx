@@ -1,20 +1,19 @@
 'use client';
 
-import { Button } from '@admin/components/ui/button';
 import { ImageViewer } from '@admin/components/modules/image-viewer';
+import { Button } from '@admin/components/ui/button';
 import { cn } from '@admin/lib/utils';
 import { Loader2, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
-import { cancelUploadAction } from '../actions';
 import { uploadToCloudinary } from '../utils/cloudinary-upload';
 
 interface MultiImageUploadFieldProps {
-  /** Array of tempIds currently staged in the form. */
+  /** Array of imageIds currently staged in the form. */
   value: string[];
   /** Called with the updated array after each add or remove. */
-  onChange: (tempIds: string[]) => void;
+  onChange: (imageIds: string[]) => void;
   disabled?: boolean;
   isUploading: boolean;
   setIsUploading: (v: boolean) => void;
@@ -34,7 +33,7 @@ export function MultiImageUploadField({
   existingImages = {},
 }: MultiImageUploadFieldProps) {
   /**
-   * Map from tempId → preview URL. Updated progressively as each concurrent
+   * Map from imageId → preview URL. Updated progressively as each concurrent
    * upload completes so thumbnails appear one-by-one rather than all at once.
    */
   const [previews, setPreviews] =
@@ -83,12 +82,12 @@ export function MultiImageUploadField({
             return;
           }
 
-          const { tempId, tempUrl } = result;
+          const { imageId, previewUrl } = result;
 
           // Update preview map immediately so this thumbnail appears
           // without waiting for the other concurrent uploads to finish.
-          setPreviews((prev) => ({ ...prev, [tempId]: tempUrl }));
-          newIds.push(tempId);
+          setPreviews((prev) => ({ ...prev, [imageId]: previewUrl }));
+          newIds.push(imageId);
         } finally {
           // Decrement the skeleton count as each upload settles (success or failure)
           setUploadingCount((c) => c - 1);
@@ -101,14 +100,13 @@ export function MultiImageUploadField({
     setIsUploading(false);
   };
 
-  const handleRemove = (tempId: string) => {
-    cancelUploadAction(tempId);
+  const handleRemove = (imageId: string) => {
     setPreviews((prev) => {
       const next = { ...prev };
-      delete next[tempId];
+      delete next[imageId];
       return next;
     });
-    onChange(value.filter((id) => id !== tempId));
+    onChange(value.filter((id) => id !== imageId));
   };
 
   const canAddMore = value.length + uploadingCount < maxImages && !disabled;
@@ -117,18 +115,18 @@ export function MultiImageUploadField({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-3">
         {/* Completed uploads */}
-        {value.map((tempId) => (
-          <div key={tempId} className="relative size-24 shrink-0">
+        {value.map((imageId) => (
+          <div key={imageId} className="relative size-24 shrink-0">
             <button
               type="button"
               onClick={() =>
-                previews[tempId] && setViewingSrc(previews[tempId])
+                previews[imageId] && setViewingSrc(previews[imageId])
               }
               className="relative size-24 cursor-zoom-in overflow-hidden rounded-lg border transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Xem ảnh"
             >
               <Image
-                src={previews[tempId]}
+                src={previews[imageId]}
                 alt="Product image preview"
                 fill
                 className="object-cover"
@@ -140,7 +138,7 @@ export function MultiImageUploadField({
               type="button"
               variant="destructive"
               size="icon"
-              onClick={() => handleRemove(tempId)}
+              onClick={() => handleRemove(imageId)}
               disabled={disabled}
               aria-label="Xóa ảnh"
               className="absolute -right-2 -top-2 size-5"

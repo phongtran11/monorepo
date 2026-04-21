@@ -6,14 +6,13 @@ import { Camera, Clipboard, ImageIcon, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { cancelUploadAction } from '../actions';
 import { uploadToCloudinary } from '../utils/cloudinary-upload';
 
 interface ImageUploadFieldProps {
-  /** The current tempId value from the form (empty string = no staged upload). */
+  /** The current imageId value from the form (empty string = no staged upload). */
   value: string;
-  /** Called with the new tempId after a successful upload, or '' when removed. */
-  onChange: (tempId: string) => void;
+  /** Called with the new imageId after a successful upload, or '' when removed. */
+  onChange: (imageId: string) => void;
   /** Existing image URL from the server (shown when no upload is staged). */
   currentImageUrl?: string | null;
   disabled?: boolean;
@@ -29,10 +28,10 @@ export function ImageUploadField({
   isUploading,
   setIsUploading,
 }: ImageUploadFieldProps) {
-  // Tracks the currently staged upload: tempId + its preview URL.
+  // Tracks the currently staged upload: imageId + its preview URL.
   // Kept as a single object so they stay in sync without an effect.
   const [staged, setStaged] = useState<{
-    tempId: string;
+    imageId: string;
     previewUrl: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +39,10 @@ export function ImageUploadField({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Show the staged preview when the form value matches our staged tempId;
+  // Show the staged preview when the form value matches our staged imageId;
   // otherwise fall back to the existing server image.
   const displayUrl =
-    staged && staged.tempId === value
+    staged && staged.imageId === value
       ? staged.previewUrl
       : (currentImageUrl ?? null);
   const hasImage = !!displayUrl;
@@ -52,9 +51,8 @@ export function ImageUploadField({
     async (file: File) => {
       if (disabled || isUploading) return;
 
-      // Cancel the previous staged upload before starting a replacement
+      // Clear previous staged state before starting a replacement
       if (staged) {
-        cancelUploadAction(staged.tempId);
         setStaged(null);
       }
 
@@ -72,8 +70,8 @@ export function ImageUploadField({
         return;
       }
 
-      setStaged({ tempId: result.tempId, previewUrl: result.tempUrl });
-      onChange(result.tempId);
+      setStaged({ imageId: result.imageId, previewUrl: result.previewUrl });
+      onChange(result.imageId);
     },
     [disabled, isUploading, staged, onChange, setIsUploading],
   );
@@ -108,10 +106,7 @@ export function ImageUploadField({
   }, [uploadFile]);
 
   const handleRemove = () => {
-    if (staged) {
-      cancelUploadAction(staged.tempId);
-      setStaged(null);
-    }
+    setStaged(null);
     onChange('');
   };
 

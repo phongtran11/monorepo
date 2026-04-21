@@ -13,6 +13,7 @@ import {
 /**
  * Entity representing a product category in the system.
  * Categories are organized in a tree structure.
+ * Images are stored in the shared `images` table (resourceType='category').
  */
 @Entity('categories')
 @Tree('materialized-path')
@@ -52,23 +53,6 @@ export class Category {
    */
   @TreeChildren()
   children: Category[];
-
-  /**
-   * The secure URL of the category image.
-   */
-  @Column({ type: 'varchar', length: 500, name: 'image_url', nullable: true })
-  imageUrl: string | null;
-
-  /**
-   * The public ID of the image in Cloudinary.
-   */
-  @Column({
-    type: 'varchar',
-    length: 255,
-    name: 'image_public_id',
-    nullable: true,
-  })
-  imagePublicId: string | null;
 
   /**
    * The date and time when the category was created.

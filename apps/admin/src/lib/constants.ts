@@ -1,4 +1,4 @@
-import {  Role } from '@lam-thinh-ecommerce/shared';
+import { Role } from '@lam-thinh-ecommerce/shared';
 
 /**
  * Roles that are permitted to access the admin dashboard.
@@ -25,10 +25,7 @@ export const API_ENDPOINTS = {
     BASE: '/products',
   },
   UPLOAD: {
-    TEMP: '/upload/temp',
-    SIGN: '/upload/sign',
-    REGISTER: '/upload/temp/register',
-    CANCEL: (tempId: string) => `/upload/cancel/${tempId}`,
+    REGISTER: '/upload/register',
   },
 };
 

@@ -4,6 +4,7 @@ import {
   COOKIES,
 } from '@admin/lib/constants';
 import { env } from '@admin/lib/env';
+import { ROUTES } from '@admin/lib/routes';
 import {
   AccountStatus,
   ApiResponse,
@@ -13,7 +14,6 @@ import {
 import { NextRequest, NextResponse } from 'next/server';
 
 import { decodeJwtPayload } from './jwt';
-import { ROUTES } from '@admin/lib/routes';
 
 async function refreshTokens(refreshToken: string): Promise<TokenPair | null> {
   try {

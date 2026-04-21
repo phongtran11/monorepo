@@ -57,7 +57,7 @@ export const productColumns: ColumnDef<Product>[] = [
     header: 'Sản phẩm',
     cell: ({ row }) => {
       const product = row.original;
-      const thumbnail = product.images[0]?.imageUrl;
+      const thumbnail = product.images[0]?.secureUrl;
 
       return (
         <div className="flex items-center gap-3">

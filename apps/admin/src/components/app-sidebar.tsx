@@ -11,8 +11,8 @@ import {
   SidebarMenuItem,
 } from '@admin/components/ui/sidebar';
 import { FolderTree, Package, Store } from 'lucide-react';
-import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const items = [
   { title: 'Sản phẩm', url: '/products', icon: Package },

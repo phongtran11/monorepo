@@ -1,38 +1,15 @@
 import { JwtAuthGuard } from '@api/auth/guard';
 import type { AuthUser } from '@api/auth/jwt.type';
-import {
-  RegisterTempUploadDto,
-  TempUploadResponseDto,
-} from '@api/cloudinary/dto';
-import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
+import { ImageResponseDto, RegisterUploadDto } from '@api/cloudinary/dto';
+import { ImageService } from '@api/cloudinary/service/image.service';
 import { CurrentUser } from '@api/common';
 import { ApiResponseDto } from '@api/common/dto/api-response.dto';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiOkResponse,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as multer from 'multer';
 
 /**
- * Controller handling temporary image uploads.
+ * Controller handling image upload registration.
  */
 @ApiTags('Upload')
 @Controller('upload')
@@ -40,105 +17,39 @@ export class UploadController {
   /**
    * Creates an instance of the UploadController.
    *
-   * @param tempUploadService - Service to manage temporary uploads.
+   * @param imageService - Service to manage image records.
    */
-  constructor(private readonly tempUploadService: TempUploadService) {}
+  constructor(private readonly imageService: ImageService) {}
 
   /**
-   * Uploads an image to the temporary folder.
-   *
-   * @param req - The request object containing user information.
-   * @param file - The uploaded file.
-   * @returns The temporary upload metadata.
-   */
-  @Post('temp')
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    type: TempUploadResponseDto,
-  })
-  @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('file'))
-  @UseGuards(JwtAuthGuard)
-  async uploadTemp(
-    @CurrentUser() user: AuthUser,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const result = await this.tempUploadService.saveTempMeta(user.id, file);
-    return ApiResponseDto.success(
-      plainToInstance(TempUploadResponseDto, result),
-    );
-  }
-
-  /**
-   * Returns a short-lived Cloudinary upload signature so the browser can upload directly.
+   * Registers a Cloudinary asset (uploaded directly from the browser) as a pending image.
+   * The backend verifies the asset exists via the Cloudinary Admin API before saving.
+   * Returns an imageId to be included in subsequent form submissions.
    *
    * @param user - The current authenticated user.
-   * @returns Signature parameters for the Cloudinary Upload API.
+   * @param body - The publicId and secureUrl returned by Cloudinary.
+   * @returns The registered image record.
    */
-  @Get('sign')
-  @ApiOkResponse({ description: 'Cloudinary upload signature' })
+  @Post('register')
+  @ApiCreatedResponse({
+    description: 'Image registered successfully',
+    type: ImageResponseDto,
+  })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  getUploadSignature(@CurrentUser() user: AuthUser) {
-    const result = this.tempUploadService.generateSignature(user.id);
-    return ApiResponseDto.success(result);
-  }
-
-  /**
-   * Registers a Cloudinary asset uploaded directly from the browser as a temp upload.
-   *
-   * @param user - The current authenticated user.
-   * @param body - The public ID and secure URL returned by Cloudinary.
-   * @returns The tempId, tempUrl, and expiration time.
-   */
-  @Post('temp/register')
-  @ApiResponse({ status: 201, type: TempUploadResponseDto })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  async registerTempUpload(
+  async registerUpload(
     @CurrentUser() user: AuthUser,
-    @Body() body: RegisterTempUploadDto,
+    @Body() body: RegisterUploadDto,
   ) {
-    const result = await this.tempUploadService.registerDirectUpload(
+    const image = await this.imageService.register(
       user.id,
       body.publicId,
       body.secureUrl,
     );
     return ApiResponseDto.success(
-      plainToInstance(TempUploadResponseDto, result),
+      plainToInstance(ImageResponseDto, image),
+      'Ảnh đã được đăng ký thành công',
+      201,
     );
-  }
-
-  /**
-   * Cancels a temporary upload, deleting it from storage.
-   *
-   * @param user - The current authenticated user.
-   * @param tempId - The ID of the temporary upload.
-   * @returns A success response.
-   */
-  @Delete('cancel/:tempId')
-  @ApiResponse({
-    status: 200,
-  })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  async cancelTemp(
-    @CurrentUser() user: AuthUser,
-    @Param('tempId') tempId: string,
-  ) {
-    await this.tempUploadService.cancelTemp(tempId, user.id);
-    return ApiResponseDto.success(null, 'Đã hủy ảnh tạm thành công');
   }
 }

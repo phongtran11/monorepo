@@ -1,2 +1,2 @@
 export * from './cloudinary.service';
-export * from './temp-upload.service';
+export * from './image.service';
