@@ -100,9 +100,17 @@ jobs:
     # Railway: service → Settings → Deploy → Deploy Webhook
     steps:
       - name: Deploy API
-        if: ${{ secrets.RAILWAY_API_WEBHOOK != '' }}
-        run: curl -fsSL -X POST "${{ secrets.RAILWAY_API_WEBHOOK }}"
+        run: |
+          if [ -n "$WEBHOOK_URL" ]; then
+            curl -fsSL -X POST "$WEBHOOK_URL"
+          fi
+        env:
+          WEBHOOK_URL: ${{ secrets.RAILWAY_API_WEBHOOK }}
 
       - name: Deploy Admin
-        if: ${{ secrets.RAILWAY_ADMIN_WEBHOOK != '' }}
-        run: curl -fsSL -X POST "${{ secrets.RAILWAY_ADMIN_WEBHOOK }}"
+        run: |
+          if [ -n "$WEBHOOK_URL" ]; then
+            curl -fsSL -X POST "$WEBHOOK_URL"
+          fi
+        env:
+          WEBHOOK_URL: ${{ secrets.RAILWAY_ADMIN_WEBHOOK }}
