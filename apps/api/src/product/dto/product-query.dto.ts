@@ -23,7 +23,7 @@ export class ProductQueryDto {
   @IsInt()
   @Min(1)
   @IsOptional()
-  page?: number = 1;
+  page: number = 1;
 
   /**
    * Number of items per page.
@@ -37,7 +37,7 @@ export class ProductQueryDto {
   @Min(1)
   @Max(100)
   @IsOptional()
-  limit?: number = 20;
+  limit: number = 20;
 
   /**
    * Full-text search on name or SKU.

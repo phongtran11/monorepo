@@ -4,10 +4,15 @@ import {
   UpdateCategoryDto,
 } from '@api/category/dto';
 import { Category } from '@api/category/entities/category.entity';
+import { CategoryPort } from '@api/category/ports/category.port';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
+import { CategoryImageResult, CategoryResult } from '@api/category/types';
+import { IMAGE_RESOURCE_TYPE } from '@api/cloudinary/constants';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
-import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
-import { formatYearMonth, slugify } from '@lam-thinh-ecommerce/shared';
+import { ImageService } from '@api/cloudinary/service/image.service';
+import { ImageResult } from '@api/cloudinary/types';
+import { ProductPort } from '@api/product/ports/product.port';
+import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -15,115 +20,88 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 
 /**
  * Service for managing categories.
  */
 @Injectable()
-export class CategoryService {
+export class CategoryService implements CategoryPort {
   private readonly logger = new Logger(CategoryService.name);
 
-  /**
-   * Creates an instance of the CategoryService.
-   *
-   * @param categoryRepository - The repository for category database operations.
-   * @param tempUploadService - The service to handle temporary uploads.
-   * @param cloudinaryService - The service to handle cloudinary operations.
-   * @param dataSource - The TypeORM data source for transaction support.
-   */
   constructor(
     private readonly categoryRepository: CategoryRepository,
-    private readonly tempUploadService: TempUploadService,
+    private readonly imageService: ImageService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly dataSource: DataSource,
+    private readonly productPort: ProductPort,
   ) {}
 
   /**
-   * Retrieves all categories in a tree structure.
-   *
-   * @returns A list of category trees.
+   * Retrieves all categories in a tree structure with their images.
    */
-  async findAllTree(): Promise<Category[]> {
+  async findAllTree(): Promise<CategoryResult[]> {
     const trees = await this.categoryRepository.findTrees();
-
-    return this.sortCategoriesRecursive(trees);
+    const sorted = this.sortCategoriesRecursive(trees);
+    return this.attachImages(sorted);
   }
 
   /**
-   * Recursively sorts categories and their children by displayOrder.
+   * Retrieves a single category by its ID, including its image.
    *
-   * @param categories - The list of categories to sort.
-   * @returns The sorted list of categories.
-   */
-  private sortCategoriesRecursive(categories: Category[]): Category[] {
-    return categories
-      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-      .map((category) => {
-        if (category.children && category.children.length > 0) {
-          category.children = this.sortCategoriesRecursive(category.children);
-        }
-        return category;
-      });
-  }
-
-  /**
-   * Retrieves a single category by its ID.
-   *
-   * @param id - The ID of the category to retrieve.
-   * @returns The found category.
    * @throws NotFoundException if the category is not found.
    */
-  async findOne(id: string): Promise<Category> {
-    const category = await this.categoryRepository.findOne({
-      where: { id },
-      relations: ['parent'],
-    });
+  async findOne(id: string): Promise<CategoryResult> {
+    const category = await this.categoryRepository.findById(id);
 
     if (!category) {
       throw new NotFoundException('Danh mục không tồn tại');
     }
 
-    return category;
+    const images = await this.imageService.findForResource('category', id);
+    return this.toResult(category, images[0] ?? null);
   }
 
   /**
    * Creates a new category with optional image attachment.
    *
-   * Pattern: Pre-process all external → DB transaction
-   * - External services (Redis, Cloudinary) called BEFORE transaction
-   * - Transaction only contains DB operations (minimizes lock time)
-   * - If external services fail, no DB changes occur
-   * - If DB fails, Cloudinary image is orphaned (acceptable - can be cleaned by scheduler)
-   *
-   * @param dto - The data for creating the category.
-   * @param userId - The ID of the authenticated user (required if imageId is provided).
-   * @returns The newly created category.
-   * @throws ConflictException if the slug already exists.
-   * @throws NotFoundException if parent category or temp upload not found.
+   * Follows the external-before-transaction pattern:
+   * 1. Resolve the target category ID before opening the transaction.
+   * 2. Call markPermanent (Cloudinary + DB) before the transaction so the DB lock time is minimal.
+   * 3. On transaction failure, roll back the just-marked image by deleting the Cloudinary asset.
    */
-  async create(dto: CreateCategoryDto, userId: string): Promise<Category> {
+  async create(
+    dto: CreateCategoryDto,
+    userId: string,
+  ): Promise<CategoryResult> {
     const slug = slugify(dto.name);
 
-    // Step 1: Validate slug (read-only, no lock)
-    const existingSlug = await this.categoryRepository.findOne({
-      where: { slug },
-      withDeleted: true,
-    });
+    const existingSlug = await this.categoryRepository.findBySlug(slug);
 
     if (existingSlug && !existingSlug.deletedAt) {
       throw new ConflictException('Slug danh mục đã tồn tại');
     }
 
-    // Step 2: Pre-process image - ALL external operations BEFORE transaction
-    const image = await this.resolveImage(dto.imageId, userId);
+    // Resolve the category ID before the transaction so markPermanent can run first.
+    // Restore path: reuse the soft-deleted record's existing ID.
+    // Create path: generate a new UUID upfront.
+    const resolvedId = existingSlug?.deletedAt ? existingSlug.id : randomUUID();
 
-    // Step 3: Database transaction - ONLY DB operations, no external calls
+    let markedImage: ImageResult[] | null = null;
+    if (dto.imageId) {
+      markedImage = await this.imageService.markPermanent(
+        [dto.imageId],
+        'category',
+        resolvedId,
+        userId,
+      );
+    }
+
     try {
-      const savedId = await this.dataSource.transaction(async (manager) => {
+      await this.dataSource.transaction(async (manager) => {
         const categoryRepository = manager.getRepository(Category);
 
-        // Load parent if provided
         let parent: Category | null = null;
         if (dto.parentId) {
           parent = await categoryRepository.findOne({
@@ -135,11 +113,8 @@ export class CategoryService {
           }
         }
 
-        // Use tree-aware repository so TypeORM recalculates mpath on save
         const treeRepository = manager.getTreeRepository(Category);
 
-        // Restore soft-deleted category: reuse the same ID but reset all data
-        // Must go through treeRepository.save() — plain update() skips mpath recalculation
         if (existingSlug?.deletedAt) {
           const toRestore = await treeRepository.findOne({
             where: { id: existingSlug.id },
@@ -152,210 +127,141 @@ export class CategoryService {
 
           toRestore.name = dto.name;
           toRestore.displayOrder = dto.displayOrder ?? toRestore.displayOrder;
-          toRestore.imagePublicId = image?.publicId ?? null;
-          toRestore.imageUrl = image?.url ?? null;
           toRestore.parent = parent;
           toRestore.deletedAt = null;
 
-          const restored = await treeRepository.save(toRestore);
-          return restored.id;
+          await treeRepository.save(toRestore);
+          return;
         }
 
-        // Create new category — treeRepository.save() sets mpath based on parent
         const category = treeRepository.create({
+          id: resolvedId,
           name: dto.name,
           slug,
           displayOrder: dto.displayOrder,
-          imagePublicId: image?.publicId ?? null,
-          imageUrl: image?.url ?? null,
           parent,
         });
 
-        const saved = await treeRepository.save(category);
-        return saved.id;
+        await treeRepository.save(category);
       });
-
-      return this.findOne(savedId);
     } catch (error) {
-      // Rollback: delete permanent image if DB transaction failed
-      if (image) {
-        await this.cloudinaryService.deleteAsset(image.publicId);
-      }
-      if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Slug danh mục đã tồn tại');
+      if (markedImage) {
+        await Promise.allSettled(
+          markedImage.map((img) =>
+            this.cloudinaryService.deleteAsset(img.publicId),
+          ),
+        );
       }
       throw error;
     }
+
+    return this.findOne(resolvedId);
   }
 
   /**
    * Updates an existing category.
-   *
-   * @param id - The ID of the category to update.
-   * @param dto - The data for updating the category.
-   * @param userId - The ID of the authenticated user (required if imageId is provided).
-   * @returns The updated category.
-   * @throws ConflictException if the new slug already exists for another category.
    */
   async update(
     id: string,
     dto: UpdateCategoryDto,
     userId: string,
-  ): Promise<Category> {
-    // Pre-process image BEFORE transaction (same pattern as create)
-    const newImage = await this.resolveImage(dto.imageId, userId);
+  ): Promise<CategoryResult> {
+    await this.dataSource.transaction(async (manager) => {
+      const categoryRepo = manager.getRepository(Category);
 
-    let oldImagePublicId: string | null = null;
-
-    try {
-      const result = await this.dataSource.transaction(async (manager) => {
-        const categoryRepo = manager.getRepository(Category);
-
-        const category = await categoryRepo.findOne({
-          where: { id },
-          relations: ['parent'],
-        });
-
-        if (!category) {
-          throw new NotFoundException('Danh mục không tồn tại');
-        }
-
-        // Track old image for post-transaction cleanup
-        if (dto.imageId !== undefined) {
-          oldImagePublicId = category.imagePublicId;
-        }
-
-        if (dto.name && dto.name !== category.name) {
-          const slug = slugify(dto.name);
-          const existing = await categoryRepo.findOne({
-            where: { slug },
-            withDeleted: true,
-          });
-
-          if (existing && existing.id !== id) {
-            throw new ConflictException('Slug danh mục đã tồn tại');
-          }
-          category.name = dto.name;
-          category.slug = slug;
-        }
-
-        if (dto.displayOrder !== undefined) {
-          category.displayOrder = dto.displayOrder;
-        }
-
-        // Apply new image if provided
-        if (dto.imageId !== undefined) {
-          category.imagePublicId = newImage?.publicId ?? null;
-          category.imageUrl = newImage?.url ?? null;
-        }
-
-        if (dto.parentId !== undefined) {
-          if (dto.parentId === null) {
-            category.parent = null;
-          } else {
-            if (dto.parentId === id) {
-              throw new BadRequestException(
-                'Danh mục không thể là cha của chính nó',
-              );
-            }
-
-            const parent = await categoryRepo.findOne({
-              where: { id: dto.parentId },
-            });
-
-            if (!parent) {
-              throw new NotFoundException('Danh mục cha không tồn tại');
-            }
-
-            const descendants =
-              await this.categoryRepository.findDescendants(category);
-
-            if (descendants.some((d) => d.id === dto.parentId)) {
-              throw new BadRequestException(
-                'Danh mục cha không thể là con của danh mục hiện tại',
-              );
-            }
-
-            category.parent = parent;
-          }
-        }
-
-        return categoryRepo.save(category);
+      const category = await categoryRepo.findOne({
+        where: { id },
+        relations: ['parent'],
       });
 
-      // Post-transaction: delete old Cloudinary image (best-effort)
-      if (oldImagePublicId) {
-        await this.cloudinaryService.deleteAsset(oldImagePublicId);
+      if (!category) {
+        throw new NotFoundException('Danh mục không tồn tại');
       }
 
-      return result;
-    } catch (error) {
-      // Rollback: delete newly moved image if DB transaction failed
-      if (newImage) {
-        this.cloudinaryService.deleteAsset(newImage.publicId).catch((err) => {
-          this.logger.error(`Failed to delete image ${newImage.publicId}`, err);
+      if (dto.name && dto.name !== category.name) {
+        const slug = slugify(dto.name);
+        const existing = await categoryRepo.findOne({
+          where: { slug },
+          withDeleted: true,
         });
+
+        if (existing && existing.id !== id) {
+          throw new ConflictException('Slug danh mục đã tồn tại');
+        }
+        category.name = dto.name;
+        category.slug = slug;
       }
 
-      if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Slug danh mục đã tồn tại');
+      if (dto.displayOrder !== undefined) {
+        category.displayOrder = dto.displayOrder;
       }
-      throw error;
+
+      if (dto.parentId !== undefined) {
+        if (dto.parentId === null) {
+          category.parent = null;
+        } else {
+          if (dto.parentId === id) {
+            throw new BadRequestException(
+              'Danh mục không thể là cha của chính nó',
+            );
+          }
+
+          const parent = await categoryRepo.findOne({
+            where: { id: dto.parentId },
+          });
+
+          if (!parent) {
+            throw new NotFoundException('Danh mục cha không tồn tại');
+          }
+
+          const descendants =
+            await this.categoryRepository.findDescendants(category);
+
+          if (descendants.some((d) => d.id === dto.parentId)) {
+            throw new BadRequestException(
+              'Danh mục cha không thể là con của danh mục hiện tại',
+            );
+          }
+
+          category.parent = parent;
+        }
+      }
+
+      await categoryRepo.save(category);
+    });
+
+    if (dto.imageId !== undefined) {
+      if (dto.imageId) {
+        await this.imageService.markPermanent(
+          [dto.imageId],
+          'category',
+          id,
+          userId,
+        );
+      } else {
+        await this.imageService.deleteForResource('category', id);
+      }
     }
+
+    return this.findOne(id);
   }
 
   /**
-   * Consumes a temporary upload and moves it to the permanent category folder.
-   * Returns null if no imageId is provided.
-   *
-   * @param imageId - The temporary upload ID (optional).
-   * @param userId - The ID of the authenticated user.
-   * @returns The permanent publicId and url, or null.
+   * Returns true if a category with the given ID exists (not soft-deleted).
+   * Implements CategoryPort — used by ProductService for validation.
    */
-  private async resolveImage(
-    imageId: string | undefined,
-    userId: string,
-  ): Promise<{ publicId: string; url: string } | null> {
-    if (!imageId) return null;
-
-    const { publicId } = await this.tempUploadService.consumeTempMeta(
-      imageId,
-      userId,
-    );
-
-    const moved = await this.cloudinaryService.moveToPermanent(
-      publicId,
-      `uploads/category/${formatYearMonth()}`,
-    );
-
-    return { publicId: moved.publicId, url: moved.secureUrl };
-  }
-
-  /**
-   * Checks whether an error is a PostgreSQL unique constraint violation (code 23505).
-   *
-   * @param error - The error to check.
-   * @returns True if the error is a unique constraint violation.
-   */
-  private isUniqueConstraintError(error: unknown): boolean {
-    return (error as { code?: string })?.code === '23505';
+  async exists(id: string): Promise<boolean> {
+    const category = await this.categoryRepository.findById(id);
+    return category !== null;
   }
 
   /**
    * Removes multiple categories atomically using soft remove.
-   * All categories must exist and have no children.
-   *
-   * @param dto - The DTO containing the list of category IDs to delete.
-   * @throws NotFoundException if any ID does not exist.
-   * @throws ConflictException if any category has children.
    */
   async bulkRemove(dto: BulkDeleteCategoryDto): Promise<void> {
     const { ids } = dto;
 
-    const categories = await this.categoryRepository.find({
-      where: ids.map((id) => ({ id })),
-      relations: ['children'],
-    });
+    const categories = await this.categoryRepository.findByIds(ids);
 
     if (categories.length !== ids.length) {
       const foundIds = new Set(categories.map((c) => c.id));
@@ -372,19 +278,26 @@ export class CategoryService {
       );
     }
 
+    const hasProducts = await this.productPort.hasProductsInCategories(ids);
+    if (hasProducts) {
+      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+    }
+
+    for (const category of categories) {
+      await this.imageService.deleteForResource(
+        IMAGE_RESOURCE_TYPE.CATEGORY,
+        category.id,
+      );
+    }
+
     await this.categoryRepository.softRemove(categories);
   }
 
   /**
    * Removes a category using soft remove.
-   *
-   * @param id - The ID of the category to remove.
    */
   async remove(id: string): Promise<void> {
-    const category = await this.categoryRepository.findOne({
-      where: { id },
-      relations: ['children'],
-    });
+    const category = await this.categoryRepository.findById(id);
 
     if (!category) {
       throw new NotFoundException('Danh mục không tồn tại');
@@ -396,6 +309,100 @@ export class CategoryService {
       );
     }
 
+    const hasProducts = await this.productPort.hasProductsInCategories([id]);
+    if (hasProducts) {
+      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+    }
+
+    await this.imageService.deleteForResource(IMAGE_RESOURCE_TYPE.CATEGORY, id);
     await this.categoryRepository.softRemove(category);
+  }
+
+  /**
+   * Recursively sorts categories and their children by displayOrder.
+   */
+  private sortCategoriesRecursive(categories: Category[]): Category[] {
+    return categories
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      .map((category) => {
+        if (category.children?.length) {
+          category.children = this.sortCategoriesRecursive(category.children);
+        }
+        return category;
+      });
+  }
+
+  /**
+   * Maps a category entity and its image to a domain result interface.
+   */
+  private toResult(
+    category: Category,
+    image: ImageResult | null,
+  ): CategoryResult {
+    return {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      displayOrder: category.displayOrder,
+      image: this.toImageResult(image),
+      children: category.children?.map((child) => this.toResult(child, null)),
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
+    };
+  }
+
+  /**
+   * Maps an image result to a category image result interface.
+   */
+  private toImageResult(image: ImageResult | null): CategoryImageResult | null {
+    if (!image) return null;
+    return { id: image.id, secureUrl: image.secureUrl };
+  }
+
+  /**
+   * Batch-loads images for an entire category tree and maps to domain results.
+   */
+  private async attachImages(
+    categories: Category[],
+  ): Promise<CategoryResult[]> {
+    const allIds = this.collectIds(categories);
+    const images = await this.imageService.findForResources('category', allIds);
+    const imageMap = new Map(images.map((img) => [img.resourceId, img]));
+    return this.mapWithImages(categories, imageMap);
+  }
+
+  /**
+   * Recursively collects all category IDs from the tree.
+   */
+  private collectIds(categories: Category[]): string[] {
+    return categories.flatMap((cat) => [
+      cat.id,
+      ...this.collectIds(cat.children ?? []),
+    ]);
+  }
+
+  /**
+   * Recursively maps category entities to domain results, assigning images from the map.
+   */
+  private mapWithImages(
+    categories: Category[],
+    imageMap: Map<string | null, ImageResult>,
+  ): CategoryResult[] {
+    return categories.map((cat) => {
+      const image = imageMap.get(cat.id) ?? null;
+      const children = cat.children?.length
+        ? this.mapWithImages(cat.children, imageMap)
+        : undefined;
+      return {
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        displayOrder: cat.displayOrder,
+        image: this.toImageResult(image),
+        children,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+      };
+    });
   }
 }

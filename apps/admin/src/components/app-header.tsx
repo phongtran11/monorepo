@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,6 +12,7 @@ import { SidebarTrigger } from '@admin/components/ui/sidebar';
 import { getBreadcrumbs } from '@admin/lib/routes';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import React from 'react';
 
 import { UserNav } from './user-nav';
 

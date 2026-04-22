@@ -117,12 +117,12 @@ export function DetailProductPage({
                       <button
                         key={img.id}
                         type="button"
-                        onClick={() => setSelectedImage(img.imageUrl)}
+                        onClick={() => setSelectedImage(img.secureUrl)}
                         className="relative size-24 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         aria-label="Xem ảnh lớn"
                       >
                         <Image
-                          src={img.imageUrl}
+                          src={img.secureUrl}
                           alt={product.name}
                           fill
                           className="object-cover"

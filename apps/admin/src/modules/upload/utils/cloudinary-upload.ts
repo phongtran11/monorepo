@@ -1,39 +1,36 @@
-import {
-  getUploadSignatureAction,
-  registerTempUploadAction,
-} from '../actions';
+import { getUploadSignatureAction, registerUploadAction } from '../actions';
 
 /**
- * Uploads a file to Cloudinary via the 3-step flow:
- * 1. Get a short-lived signed URL from the backend
- * 2. Upload directly from the browser to Cloudinary
- * 3. Register the temp asset with the backend to receive a tempId
+ * Uploads a file to Cloudinary via the 2-step signed upload flow:
+ * 1. Fetch a short-lived upload signature from the backend (api_secret never leaves server)
+ * 2. Upload directly from the browser to Cloudinary using the signed params
+ * 3. Register the uploaded asset with the backend to receive an imageId
  *
- * Returns `{ tempId, tempUrl }` on success, or `null` on any failure.
+ * Returns `{ imageId, previewUrl }` on success, or `null` on any failure.
  */
 export async function uploadToCloudinary(
   file: File,
-): Promise<{ tempId: string; tempUrl: string } | null> {
-  // Step 1: get a short-lived Cloudinary signature
-  const sigResult = await getUploadSignatureAction();
-  if (!sigResult.success || !sigResult.data) return null;
+): Promise<{ imageId: string; previewUrl: string } | null> {
+  // Step 1: fetch signed upload params from the backend
+  const signResult = await getUploadSignatureAction();
 
-  const { signature, timestamp, apiKey, cloudName, folder, tags } =
-    sigResult.data;
+  if (!signResult.success || !signResult.data) return null;
 
-  // Step 2: upload directly from the browser to Cloudinary
+  const { signature, timestamp, apiKey, folder, cloudName } = signResult.data;
+  const imageUploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+  // Step 2: upload directly from the browser to Cloudinary using signed params
   const cloudinaryForm = new FormData();
   cloudinaryForm.append('file', file);
-  cloudinaryForm.append('api_key', apiKey);
-  cloudinaryForm.append('timestamp', String(timestamp));
   cloudinaryForm.append('signature', signature);
+  cloudinaryForm.append('timestamp', String(timestamp));
+  cloudinaryForm.append('api_key', apiKey);
   cloudinaryForm.append('folder', folder);
-  cloudinaryForm.append('tags', tags);
 
-  const cloudRes = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: cloudinaryForm },
-  );
+  const cloudRes = await fetch(imageUploadUrl, {
+    method: 'POST',
+    body: cloudinaryForm,
+  });
 
   if (!cloudRes.ok) return null;
 
@@ -42,9 +39,9 @@ export async function uploadToCloudinary(
     secure_url: string;
   };
 
-  // Step 3: register with the backend to get a tempId
-  const result = await registerTempUploadAction(public_id, secure_url);
+  // Step 3: register with the backend to get an imageId
+  const result = await registerUploadAction(public_id, secure_url);
   if (!result.success || !result.data) return null;
 
-  return { tempId: result.data.tempId, tempUrl: result.data.tempUrl };
+  return { imageId: result.data.id, previewUrl: secure_url };
 }

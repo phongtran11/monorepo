@@ -17,6 +17,7 @@ import {
   ApiCreatedResponse,
   ApiHeaders,
   ApiOkResponse,
+  ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -49,6 +50,7 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the authentication tokens.
    */
   @Post('register')
+  @ApiOperation({ summary: 'Register a new user account' })
   @ApiHeaders([
     {
       name: 'user-agent',
@@ -78,6 +80,9 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the authentication tokens.
    */
   @Post('login')
+  @ApiOperation({
+    summary: 'Authenticate a user and return access and refresh tokens',
+  })
   @ApiHeaders([
     {
       name: 'user-agent',
@@ -107,6 +112,9 @@ export class AuthController {
    * @returns An ApiResponseDto containing the user's profile and permissions.
    */
   @Get('profile')
+  @ApiOperation({
+    summary: 'Get the profile of the currently authenticated user',
+  })
   @ApiOkResponse({ type: ApiResponseOf(ProfileDto) })
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -126,6 +134,9 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto containing the new authentication tokens.
    */
   @Post('refresh')
+  @ApiOperation({
+    summary: 'Refresh authentication tokens using a valid refresh token',
+  })
   @ApiHeaders([
     {
       name: 'user-agent',
@@ -161,6 +172,9 @@ export class AuthController {
    * @returns A promise that resolves to an ApiResponseDto indicating successful logout.
    */
   @Post('logout')
+  @ApiOperation({
+    summary: 'Invalidate the current session and log out the user',
+  })
   @ApiOkResponse({
     type: ApiResponseDto,
     description: 'Successfully logged out',

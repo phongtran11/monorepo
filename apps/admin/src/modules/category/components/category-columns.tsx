@@ -102,9 +102,9 @@ export const categoryColumns: ColumnDef<Category>[] = [
             <span className="size-5 shrink-0" />
           )}
 
-          {cat.imageUrl ? (
+          {cat.image?.secureUrl ? (
             <Image
-              src={cat.imageUrl}
+              src={cat.image.secureUrl}
               alt={cat.name}
               width={32}
               height={32}

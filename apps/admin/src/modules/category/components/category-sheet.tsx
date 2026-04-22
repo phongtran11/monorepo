@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@admin/components/ui/sheet';
-import { cancelUploadAction, ImageUploadField } from '@admin/modules/upload';
+import { ImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -41,7 +41,7 @@ export function CategorySheet({
   const [isUploading, setIsUploading] = useState(false);
   const prevOpenRef = useRef(false);
 
-  const { control, handleSubmit, reset, getValues, setValue, formState } =
+  const { control, handleSubmit, reset, setValue, formState } =
     useForm<CategorySchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(categorySchema),
@@ -70,9 +70,6 @@ export function CategorySheet({
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
-      // Cancel any staged (not yet submitted) temp upload
-      const tempId = getValues('imageId');
-      if (tempId) cancelUploadAction(tempId);
       setErrorMessage(null);
     }
     onOpenChange(next);
@@ -131,7 +128,7 @@ export function CategorySheet({
                   setIsUploading={setIsUploading}
                   value={field.value ?? ''}
                   onChange={field.onChange}
-                  currentImageUrl={editCategory?.imageUrl}
+                  currentImageUrl={editCategory?.image?.secureUrl}
                   disabled={isBusy}
                 />
               </Field>

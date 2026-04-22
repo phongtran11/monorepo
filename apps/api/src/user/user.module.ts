@@ -1,3 +1,4 @@
+import { UserPort } from '@api/user/ports/user.port';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -10,7 +11,11 @@ import { UserService } from './user.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([User])],
-  providers: [UserRepository, UserService],
-  exports: [UserService],
+  providers: [
+    UserRepository,
+    UserService,
+    { provide: UserPort, useExisting: UserService },
+  ],
+  exports: [UserPort],
 })
 export class UserModule {}

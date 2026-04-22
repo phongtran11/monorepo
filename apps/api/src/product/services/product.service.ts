@@ -1,6 +1,6 @@
-import { Category } from '@api/category/entities/category.entity';
-import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
-import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
+import { IMAGE_RESOURCE_TYPE } from '@api/cloudinary/constants';
+import { ImageService } from '@api/cloudinary/service/image.service';
+import { ImageResult } from '@api/cloudinary/types';
 import {
   BulkDeleteProductDto,
   CreateProductDto,
@@ -8,159 +8,101 @@ import {
   UpdateProductDto,
 } from '@api/product/dto';
 import { Product } from '@api/product/entities/product.entity';
-import { ProductImage } from '@api/product/entities/product-image.entity';
+import { ProductPort } from '@api/product/ports/product.port';
 import { ProductRepository } from '@api/product/repositories/product.repository';
-import { formatYearMonth, slugify } from '@lam-thinh-ecommerce/shared';
 import {
-  BadRequestException,
+  PaginatedProductsResult,
+  ProductImageResult,
+  ProductResult,
+} from '@api/product/types';
+import { slugify } from '@lam-thinh-ecommerce/shared';
+import {
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource, In } from 'typeorm';
-
-/**
- * Result of moving a temp-uploaded image to its permanent location.
- */
-interface MovedImage {
-  publicId: string;
-  secureUrl: string;
-}
-
-/**
- * Paginated query result for products.
- */
-export interface PaginatedProducts {
-  items: Product[];
-  total: number;
-  page: number;
-  limit: number;
-}
+import { DataSource, QueryFailedError } from 'typeorm';
 
 /**
  * Service for managing products.
  */
 @Injectable()
-export class ProductService {
+export class ProductService implements ProductPort {
   private readonly logger = new Logger(ProductService.name);
 
-  /**
-   * Creates an instance of the ProductService.
-   *
-   * @param productRepository - The repository for product database operations.
-   * @param tempUploadService - The service to handle temporary uploads.
-   * @param cloudinaryService - The service to handle cloudinary operations.
-   * @param dataSource - The TypeORM data source for transaction support.
-   */
   constructor(
     private readonly productRepository: ProductRepository,
-    private readonly tempUploadService: TempUploadService,
-    private readonly cloudinaryService: CloudinaryService,
+    private readonly imageService: ImageService,
     private readonly dataSource: DataSource,
   ) {}
 
   /**
    * Retrieves a paginated list of products with optional filtering.
-   *
-   * @param query - Pagination and filter parameters.
-   * @returns The paginated products.
    */
-  async findAll(query: ProductQueryDto): Promise<PaginatedProducts> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+  async findAll(query: ProductQueryDto): Promise<PaginatedProductsResult> {
+    const page = query.page;
+    const limit = query.limit;
 
-    const qb = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.images', 'images')
-      .orderBy('product.createdAt', 'DESC')
-      .addOrderBy('images.sortOrder', 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit);
+    const [products, total] = await this.productRepository.findPaginated({
+      page,
+      limit,
+      search: query.search,
+      categoryId: query.categoryId,
+      status: query.status,
+    });
 
-    if (query.categoryId) {
-      qb.andWhere('product.categoryId = :categoryId', {
-        categoryId: query.categoryId,
-      });
+    const images = await this.imageService.findForResources(
+      IMAGE_RESOURCE_TYPE.PRODUCT,
+      products.map((p) => p.id),
+    );
+
+    const imagesByProduct = new Map<string, ImageResult[]>();
+    for (const img of images) {
+      if (!img.resourceId) continue;
+      const list = imagesByProduct.get(img.resourceId) ?? [];
+      list.push(img);
+      imagesByProduct.set(img.resourceId, list);
     }
 
-    if (query.status) {
-      qb.andWhere('product.status = :status', { status: query.status });
-    }
-
-    if (query.search) {
-      qb.andWhere('(product.name ILIKE :search OR product.sku ILIKE :search)', {
-        search: `%${query.search}%`,
-      });
-    }
-
-    const [items, total] = await qb.getManyAndCount();
+    const items = products.map((p) =>
+      this.toResult(p, imagesByProduct.get(p.id) ?? []),
+    );
 
     return { items, total, page, limit };
   }
 
   /**
-   * Retrieves a single product by its ID.
+   * Retrieves a single product by its ID, including images.
    *
-   * @param id - The ID of the product to retrieve.
-   * @returns The found product.
    * @throws NotFoundException if the product is not found.
    */
-  async findOne(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: ['images', 'category'],
-      order: { images: { sortOrder: 'ASC' } },
-    });
+  async findOne(id: string): Promise<ProductResult> {
+    const product = await this.productRepository.findById(id);
 
     if (!product) {
       throw new NotFoundException('Sản phẩm không tồn tại');
     }
 
-    return product;
+    const images = await this.imageService.findForResource('product', id);
+    return this.toResult(product, images);
   }
 
   /**
-   * Creates a new product with optional images.
-   *
-   * Pattern: Pre-process all external → DB transaction
-   * - External services (Redis, Cloudinary) called BEFORE transaction
-   * - Transaction only contains DB operations
-   * - On failure, moved images are deleted to avoid orphans
-   *
-   * @param dto - The data for creating the product.
-   * @param userId - The ID of the authenticated user (required for image ownership).
-   * @returns The newly created product with images.
+   * Creates a new product, then links any provided images as permanent.
    */
-  async create(dto: CreateProductDto, userId: string): Promise<Product> {
+  async create(dto: CreateProductDto, userId: string): Promise<ProductResult> {
     const slug = slugify(dto.name);
 
-    // Step 1: Validate uniqueness (slug / SKU) — read-only
     await this.assertSlugAvailable(slug);
     await this.assertSkuAvailable(dto.sku);
 
-    // Step 2: Pre-process images — ALL external ops BEFORE transaction
-    const movedImages = await this.consumeAndMoveImages(
-      dto.imageIds ?? [],
-      userId,
-    );
-
-    // Step 3: DB transaction — only DB operations
+    let product: Product;
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      product = await this.dataSource.transaction(async (manager) => {
         const productRepo = manager.getRepository(Product);
-        const imageRepo = manager.getRepository(ProductImage);
-        const categoryRepo = manager.getRepository(Category);
 
-        const category = await categoryRepo.findOne({
-          where: { id: dto.categoryId },
-        });
-
-        if (!category) {
-          throw new NotFoundException('Danh mục không tồn tại');
-        }
-
-        const product = productRepo.create({
+        const newProduct = productRepo.create({
           name: dto.name,
           slug,
           sku: dto.sku,
@@ -170,274 +112,205 @@ export class ProductService {
           compareAtPrice: dto.compareAtPrice ?? null,
           stock: dto.stock ?? 0,
           status: dto.status,
-          categoryId: category.id,
+          categoryId: dto.categoryId,
         });
 
-        const saved = await productRepo.save(product);
-
-        if (movedImages.length > 0) {
-          const images = movedImages.map((img, idx) =>
-            imageRepo.create({
-              imageUrl: img.secureUrl,
-              imagePublicId: img.publicId,
-              sortOrder: idx,
-              productId: saved.id,
-            }),
-          );
-          saved.images = await imageRepo.save(images);
-        } else {
-          saved.images = [];
-        }
-
-        return saved;
+        return productRepo.save(newProduct);
       });
     } catch (error) {
-      await this.rollbackMovedImages(movedImages);
-      if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Slug hoặc SKU sản phẩm đã tồn tại');
+      if (error instanceof QueryFailedError && error.name === '23503') {
+        throw new NotFoundException('Danh mục không tồn tại');
       }
       throw error;
     }
+
+    let images: ImageResult[] = [];
+    if (dto.imageIds && dto.imageIds.length > 0) {
+      try {
+        images = await this.imageService.markPermanent(
+          dto.imageIds,
+          'product',
+          product.id,
+          userId,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to mark images permanent for product ${product.id}`,
+          error,
+        );
+        throw error;
+      }
+    }
+
+    return this.toResult(product, images);
   }
 
   /**
-   * Updates an existing product. If `imageIds` is provided, the existing image
-   * set is fully replaced with the new one.
-   *
-   * @param id - The ID of the product to update.
-   * @param dto - The data for updating the product.
-   * @param userId - The ID of the authenticated user.
-   * @returns The updated product with images.
+   * Updates an existing product. If `imageIds` is provided, the image set is fully replaced.
    */
   async update(
     id: string,
     dto: UpdateProductDto,
     userId: string,
-  ): Promise<Product> {
-    // Step 1: Pre-process new images (if any) BEFORE transaction
-    const movedImages =
-      dto.imageIds && dto.imageIds.length > 0
-        ? await this.consumeAndMoveImages(dto.imageIds, userId)
-        : [];
-
-    const oldImagePublicIds: string[] = [];
-
+  ): Promise<ProductResult> {
+    let product: Product;
     try {
-      const result = await this.dataSource.transaction(async (manager) => {
+      product = await this.dataSource.transaction(async (manager) => {
         const productRepo = manager.getRepository(Product);
-        const imageRepo = manager.getRepository(ProductImage);
-        const categoryRepo = manager.getRepository(Category);
 
-        const product = await productRepo.findOne({
-          where: { id },
-          relations: ['images'],
-        });
+        const existing = await productRepo.findOne({ where: { id } });
 
-        if (!product) {
+        if (!existing) {
           throw new NotFoundException('Sản phẩm không tồn tại');
         }
 
-        if (dto.name && dto.name !== product.name) {
+        if (dto.name && dto.name !== existing.name) {
           const newSlug = slugify(dto.name);
-          const existing = await productRepo.findOne({
+          const slugConflict = await productRepo.findOne({
             where: { slug: newSlug },
             withDeleted: true,
           });
-          if (existing && existing.id !== id) {
+          if (slugConflict && slugConflict.id !== id) {
             throw new ConflictException('Slug sản phẩm đã tồn tại');
           }
-          product.name = dto.name;
-          product.slug = newSlug;
+          existing.name = dto.name;
+          existing.slug = newSlug;
         }
 
-        if (dto.sku && dto.sku !== product.sku) {
-          const existing = await productRepo.findOne({
+        if (dto.sku && dto.sku !== existing.sku) {
+          const skuConflict = await productRepo.findOne({
             where: { sku: dto.sku },
             withDeleted: true,
           });
-          if (existing && existing.id !== id) {
+          if (skuConflict && skuConflict.id !== id) {
             throw new ConflictException('SKU sản phẩm đã tồn tại');
           }
-          product.sku = dto.sku;
+          existing.sku = dto.sku;
         }
 
-        if (dto.categoryId && dto.categoryId !== product.categoryId) {
-          const category = await categoryRepo.findOne({
-            where: { id: dto.categoryId },
-          });
-          if (!category) {
-            throw new NotFoundException('Danh mục không tồn tại');
-          }
-          product.categoryId = category.id;
+        if (dto.categoryId) {
+          existing.categoryId = dto.categoryId;
         }
 
-        // Replace image set when imageIds is explicitly provided
-        if (dto.imageIds && dto.imageIds.length > 0) {
-          if (product.images && product.images.length > 0) {
-            for (const oldImage of product.images) {
-              oldImagePublicIds.push(oldImage.imagePublicId);
-            }
-            await imageRepo.remove(product.images);
-          }
+        if (dto.shortDescription !== undefined)
+          existing.shortDescription = dto.shortDescription ?? null;
+        if (dto.description !== undefined)
+          existing.description = dto.description ?? null;
+        if (dto.price !== undefined) existing.price = dto.price;
+        if (dto.compareAtPrice !== undefined)
+          existing.compareAtPrice = dto.compareAtPrice ?? null;
+        if (dto.stock !== undefined) existing.stock = dto.stock;
+        if (dto.status !== undefined) existing.status = dto.status;
 
-          if (movedImages.length > 0) {
-            const newImages = movedImages.map((img, idx) =>
-              imageRepo.create({
-                imageUrl: img.secureUrl,
-                imagePublicId: img.publicId,
-                sortOrder: idx,
-                productId: product.id,
-              }),
-            );
-            product.images = await imageRepo.save(newImages);
-          } else {
-            product.images = [];
-          }
-        }
-
-        await productRepo.save(product);
-        return product;
+        return productRepo.save(existing);
       });
-
-      // Post-transaction: delete old Cloudinary images (best-effort)
-      for (const publicId of oldImagePublicIds) {
-        await this.cloudinaryService.deleteAsset(publicId);
-      }
-
-      return result;
     } catch (error) {
-      await this.rollbackMovedImages(movedImages);
-      if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Slug hoặc SKU sản phẩm đã tồn tại');
+      if (error instanceof QueryFailedError && error.message === '23503') {
+        throw new NotFoundException('Danh mục không tồn tại');
       }
       throw error;
     }
+
+    let images: ImageResult[];
+    if (dto.imageIds && dto.imageIds.length > 0) {
+      images = await this.imageService.markPermanent(
+        dto.imageIds,
+        'product',
+        product.id,
+        userId,
+      );
+    } else {
+      images = await this.imageService.findForResource('product', product.id);
+    }
+
+    return this.toResult(product, images);
   }
 
   /**
-   * Soft-removes multiple products in a single call.
-   *
-   * @param dto - The DTO containing the list of product IDs to delete.
+   * Soft-removes multiple products. Images remain until hard delete or manual cleanup.
    */
   async bulkRemove(dto: BulkDeleteProductDto): Promise<void> {
-    const products = await this.productRepository.findBy({ id: In(dto.ids) });
+    const products = await this.productRepository.findByIds(dto.ids);
     if (products.length === 0) return;
+
+    for (const product of products) {
+      await this.imageService.deleteForResource('product', product.id);
+    }
+
     await this.productRepository.softRemove(products);
   }
 
   /**
-   * Soft-removes a product. Cloudinary images are retained and can be cleaned
-   * up by a scheduler or during hard delete.
-   *
-   * @param id - The ID of the product to remove.
+   * Soft-removes a product and deletes its Cloudinary images.
    */
   async remove(id: string): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { id } });
+    const product = await this.productRepository.findById(id);
 
     if (!product) {
       throw new NotFoundException('Sản phẩm không tồn tại');
     }
 
+    await this.imageService.deleteForResource('product', id);
     await this.productRepository.softRemove(product);
   }
 
   /**
-   * Consumes a batch of temp uploads and moves them to the permanent folder.
-   * If any step fails, already-moved images are rolled back.
-   *
-   * @param imageIds - Temporary upload IDs.
-   * @param userId - Owner of the temp uploads.
-   * @returns The moved images in the same order as the input IDs.
+   * Maps a product entity and its images to a domain result interface.
    */
-  private async consumeAndMoveImages(
-    imageIds: string[],
-    userId: string,
-  ): Promise<MovedImage[]> {
-    if (imageIds.length === 0) return [];
-
-    const moved: MovedImage[] = [];
-    const uploadBatch = formatYearMonth();
-
-    try {
-      for (const imageId of imageIds) {
-        const { publicId } = await this.tempUploadService.consumeTempMeta(
-          imageId,
-          userId,
-        );
-        const result = await this.cloudinaryService.moveToPermanent(
-          publicId,
-          `uploads/product/${uploadBatch}`,
-        );
-        moved.push(result);
-      }
-      return moved;
-    } catch (error) {
-      await this.rollbackMovedImages(moved);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException(
-        `Lỗi xử lý ảnh sản phẩm: ${(error as Error).message}`,
-      );
-    }
+  private toResult(product: Product, images: ImageResult[]): ProductResult {
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      shortDescription: product.shortDescription,
+      description: product.description,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      stock: product.stock,
+      status: product.status,
+      categoryId: product.categoryId,
+      images: images.map((img) => this.toImageResult(img)),
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
   }
 
   /**
-   * Best-effort cleanup of Cloudinary assets that were moved but whose
-   * enclosing operation failed.
-   *
-   * @param images - The moved images to delete.
+   * Maps an image entity to a domain image result interface.
    */
-  private async rollbackMovedImages(images: MovedImage[]): Promise<void> {
-    for (const img of images) {
-      try {
-        await this.cloudinaryService.deleteAsset(img.publicId);
-      } catch (err) {
-        this.logger.error(
-          `Failed to rollback image ${img.publicId}`,
-          err as Error,
-        );
-      }
-    }
+  private toImageResult(image: ImageResult): ProductImageResult {
+    return {
+      id: image.id,
+      secureUrl: image.secureUrl,
+      sortOrder: image.sortOrder,
+    };
   }
 
-  /**
-   * Asserts that the given slug is not used by any product (including soft-deleted).
-   *
-   * @param slug - The slug to check.
-   */
   private async assertSlugAvailable(slug: string): Promise<void> {
-    const existing = await this.productRepository.findOne({
-      where: { slug },
-      withDeleted: true,
-    });
+    const existing = await this.productRepository.findBySlug(slug);
     if (existing) {
       throw new ConflictException('Slug sản phẩm đã tồn tại');
     }
   }
 
-  /**
-   * Asserts that the given SKU is not used by any product (including soft-deleted).
-   *
-   * @param sku - The SKU to check.
-   */
   private async assertSkuAvailable(sku: string): Promise<void> {
-    const existing = await this.productRepository.findOne({
-      where: { sku },
-      withDeleted: true,
-    });
+    const existing = await this.productRepository.findBySku(sku);
     if (existing) {
       throw new ConflictException('SKU sản phẩm đã tồn tại');
     }
   }
 
   /**
-   * Checks whether an error is a PostgreSQL unique constraint violation (code 23505).
-   *
-   * @param error - The error to check.
-   * @returns True if the error is a unique constraint violation.
+   * Returns true if any active product references one of the given category IDs.
+   * Implements ProductPort — used by CategoryService for deletion guards.
    */
-  private isUniqueConstraintError(error: unknown): boolean {
-    return (error as { code?: string })?.code === '23505';
+  async hasProductsInCategories(categoryIds: string[]): Promise<boolean> {
+    const count = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId IN (:...categoryIds)', { categoryIds })
+      .getCount();
+
+    return count > 0;
   }
 }

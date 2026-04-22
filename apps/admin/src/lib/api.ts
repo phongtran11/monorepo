@@ -110,12 +110,6 @@ export class Apis {
     requestInit: InternalRequestInit<R>,
     signal: AbortSignal,
   ): Promise<Response> {
-    this.logger.debug(
-      '%s %s %s',
-      requestInit.method,
-      url.toString(),
-      this.buildBody(requestInit) ?? '{}',
-    );
     return fetch(url, {
       ...requestInit,
       signal,
@@ -251,6 +245,7 @@ export class Apis {
       }
 
       const body = await this.parseSuccessBody<T>(response, url.toString());
+
       this.logger.info(
         '%s %s %i in %dms',
         method,

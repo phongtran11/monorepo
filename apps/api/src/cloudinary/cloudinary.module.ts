@@ -1,19 +1,28 @@
 import { CloudinaryProvider } from '@api/cloudinary/cloudinary.provider';
+import { Image } from '@api/cloudinary/entities';
+import { ImageRepository } from '@api/cloudinary/repositories';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
-import { TempUploadService } from '@api/cloudinary/service/temp-upload.service';
-import { UploadController } from '@api/cloudinary/upload.controller';
-import { RedisModule } from '@api/common';
+import { ImageService } from '@api/cloudinary/service/image.service';
+import { ImageCleanupService } from '@api/cloudinary/service/image-cleanup.service';
 import { Global, Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 /**
- * Global module for Cloudinary integration, providing image upload and management services.
+ * Global infrastructure module for Cloudinary integration.
+ * Provides asset verification, image lifecycle management, and scheduled cleanup.
+ * Images are tracked in the shared `images` table with lifecycle status (pending → permanent).
  */
 @Global()
 @Module({
-  imports: [ScheduleModule.forRoot(), RedisModule],
-  controllers: [UploadController],
-  providers: [CloudinaryProvider, CloudinaryService, TempUploadService],
-  exports: [CloudinaryProvider, CloudinaryService, TempUploadService],
+  imports: [ScheduleModule.forRoot(), TypeOrmModule.forFeature([Image])],
+  providers: [
+    CloudinaryProvider,
+    CloudinaryService,
+    ImageRepository,
+    ImageService,
+    ImageCleanupService,
+  ],
+  exports: [CloudinaryProvider, CloudinaryService, ImageService],
 })
 export class CloudinaryModule {}

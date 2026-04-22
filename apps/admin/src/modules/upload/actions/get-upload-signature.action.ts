@@ -3,19 +3,19 @@
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS } from '@admin/lib/constants';
 
-export type UploadSignature = {
+export type UploadSignatureData = {
+  cloudName: string;
   signature: string;
   timestamp: number;
   apiKey: string;
-  cloudName: string;
   folder: string;
-  tags: string;
 };
 
 /**
- * Fetches a short-lived Cloudinary upload signature from the API.
- * The browser uses this to upload a file directly to Cloudinary without routing through Next.js.
+ * Fetches a short-lived Cloudinary upload signature from the backend.
+ * Use the returned params to perform a signed direct browser upload.
+ * The api_secret is never exposed to the client.
  */
 export async function getUploadSignatureAction() {
-  return apis.get<UploadSignature>(API_ENDPOINTS.UPLOAD.SIGN);
+  return apis.get<UploadSignatureData>(API_ENDPOINTS.UPLOAD.SIGN);
 }

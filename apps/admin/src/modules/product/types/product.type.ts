@@ -2,8 +2,7 @@ import { ProductStatus } from '@lam-thinh-ecommerce/shared';
 
 export type ProductImage = {
   id: string;
-  imageUrl: string;
-  imagePublicId: string;
+  secureUrl: string;
   sortOrder: number;
 };
 

@@ -11,6 +11,7 @@ import {
   UpdateProductDto,
 } from '@api/product/dto';
 import { ProductService } from '@api/product/services/product.service';
+import { PaginatedProductsResult, ProductResult } from '@api/product/types';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -33,7 +34,6 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { plainToInstance } from 'class-transformer';
 
 /**
  * Controller for managing products.
@@ -59,11 +59,8 @@ export class ProductController {
   @ApiOkResponse({ type: ApiResponseOf(PaginatedProductResponseDto) })
   async findAll(
     @Query() query: ProductQueryDto,
-  ): Promise<ApiResponseDto<PaginatedProductResponseDto>> {
-    const result = await this.productService.findAll(query);
-    return ApiResponseDto.success(
-      plainToInstance(PaginatedProductResponseDto, result),
-    );
+  ): Promise<ApiResponseDto<PaginatedProductsResult>> {
+    return ApiResponseDto.success(await this.productService.findAll(query));
   }
 
   /**
@@ -77,9 +74,8 @@ export class ProductController {
   @ApiOkResponse({ type: ApiResponseOf(ProductResponseDto) })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<ApiResponseDto<ProductResponseDto>> {
-    const product = await this.productService.findOne(id);
-    return ApiResponseDto.success(plainToInstance(ProductResponseDto, product));
+  ): Promise<ApiResponseDto<ProductResult>> {
+    return ApiResponseDto.success(await this.productService.findOne(id));
   }
 
   /**
@@ -98,9 +94,10 @@ export class ProductController {
   async create(
     @Body() dto: CreateProductDto,
     @CurrentUser() user: AuthUser,
-  ): Promise<ApiResponseDto<ProductResponseDto>> {
-    const product = await this.productService.create(dto, user.id);
-    return ApiResponseDto.success(plainToInstance(ProductResponseDto, product));
+  ): Promise<ApiResponseDto<ProductResult>> {
+    return ApiResponseDto.success(
+      await this.productService.create(dto, user.id),
+    );
   }
 
   /**
@@ -121,9 +118,10 @@ export class ProductController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProductDto,
     @CurrentUser() user: AuthUser,
-  ): Promise<ApiResponseDto<ProductResponseDto>> {
-    const product = await this.productService.update(id, dto, user.id);
-    return ApiResponseDto.success(plainToInstance(ProductResponseDto, product));
+  ): Promise<ApiResponseDto<ProductResult>> {
+    return ApiResponseDto.success(
+      await this.productService.update(id, dto, user.id),
+    );
   }
 
   /**

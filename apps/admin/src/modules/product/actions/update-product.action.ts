@@ -3,10 +3,10 @@
 import { withRevalidate } from '@admin/lib/action-utils';
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS } from '@admin/lib/constants';
+import { toNullableField } from '@lam-thinh-ecommerce/shared';
 
 import { ProductSchema } from '../schemas/product.schema';
 import { Product } from '../types/product.type';
-import { toNullableField } from '@lam-thinh-ecommerce/shared';
 
 export async function updateProductAction(id: string, data: ProductSchema) {
   return withRevalidate('/products', () =>

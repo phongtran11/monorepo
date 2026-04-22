@@ -1,5 +1,4 @@
 import { Category } from '@api/category/entities/category.entity';
-import { ProductImage } from '@api/product/entities/product-image.entity';
 import { ProductStatus } from '@lam-thinh-ecommerce/shared';
 import {
   Column,
@@ -9,13 +8,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 /**
  * Entity representing a product in the catalog.
+ * Images are stored in the shared `images` table (resourceType='product').
  */
 @Entity('products')
 export class Product {
@@ -121,14 +120,6 @@ export class Product {
    */
   @Column({ type: 'uuid', name: 'category_id' })
   categoryId: string;
-
-  /**
-   * Product images, ordered by `sortOrder`.
-   */
-  @OneToMany(() => ProductImage, (image) => image.product, {
-    cascade: ['insert', 'update'],
-  })
-  images: ProductImage[];
 
   /**
    * The date and time when the product was created.

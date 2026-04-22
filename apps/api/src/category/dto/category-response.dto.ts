@@ -1,5 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
+
+/**
+ * Data transfer object for a category image in responses.
+ */
+@Exclude()
+export class CategoryImageResponseDto {
+  /**
+   * The database ID of the image record.
+   * Use this as the imageId when submitting edit forms.
+   */
+  @ApiProperty({ example: 'uuid' })
+  @Expose()
+  id: string;
+
+  /**
+   * The Cloudinary secure URL for displaying the image.
+   */
+  @ApiProperty({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1/uploads/sample.jpg',
+  })
+  @Expose()
+  secureUrl: string;
+}
 
 /**
  * Data transfer object for category response.
@@ -47,25 +71,15 @@ export class CategoryResponseDto {
   displayOrder: number;
 
   /**
-   * The secure URL of the category image.
+   * The image attached to this category, if any.
    */
   @ApiPropertyOptional({
-    example:
-      'https://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg',
-    description: 'The secure URL of the category image.',
+    type: () => CategoryImageResponseDto,
+    description: 'The image attached to this category.',
   })
   @Expose()
-  imageUrl?: string | null;
-
-  /**
-   * The public ID of the image in Cloudinary.
-   */
-  @ApiPropertyOptional({
-    example: 'uploads/category/uuid/image-id',
-    description: 'The public ID of the image in Cloudinary.',
-  })
-  @Expose()
-  imagePublicId?: string | null;
+  @Type(() => CategoryImageResponseDto)
+  image?: CategoryImageResponseDto | null;
 
   /**
    * The children of this category.
