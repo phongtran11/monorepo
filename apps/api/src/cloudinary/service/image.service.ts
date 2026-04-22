@@ -1,9 +1,9 @@
-import { Image, ImageStatus } from '@api/cloudinary/entities';
+import { IMAGE_STATUS, ImageResourceType } from '@api/cloudinary/constants';
+import { Image } from '@api/cloudinary/entities';
 import { ImageRepository } from '@api/cloudinary/repositories';
 import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
-import { ResourceType } from '@api/common/constants';
+import { ImageResult } from '@api/cloudinary/types';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { In, LessThan } from 'typeorm';
 
 /**
  * Service for managing the shared images table.
@@ -26,20 +26,34 @@ export class ImageService {
     userId: string,
     publicId: string,
     secureUrl: string,
-  ): Promise<Image> {
+  ): Promise<ImageResult> {
     await this.cloudinaryService.verifyAsset(publicId);
 
     const image = this.imageRepository.create({
       userId,
       publicId,
       secureUrl,
-      status: 'pending',
+      status: IMAGE_STATUS.PENDING,
       resourceType: null,
       resourceId: null,
       sortOrder: 0,
     });
 
-    return this.imageRepository.save(image);
+    const saved = await this.imageRepository.save(image);
+    return this.toResult(saved);
+  }
+
+  /**
+   * Maps an image entity to a domain result interface.
+   */
+  private toResult(image: Image): ImageResult {
+    return {
+      id: image.id,
+      publicId: image.publicId,
+      secureUrl: image.secureUrl,
+      sortOrder: image.sortOrder,
+      resourceId: image.resourceId,
+    };
   }
 
   /**
@@ -50,13 +64,11 @@ export class ImageService {
    */
   async markPermanent(
     imageIds: string[],
-    resourceType: ResourceType,
+    resourceType: ImageResourceType,
     resourceId: string,
     userId: string,
-  ): Promise<Image[]> {
-    const images = await this.imageRepository.find({
-      where: imageIds.map((id) => ({ id })),
-    });
+  ): Promise<ImageResult[]> {
+    const images = await this.imageRepository.findByIds(imageIds);
 
     for (const imageId of imageIds) {
       const image = images.find((img) => img.id === imageId);
@@ -68,26 +80,30 @@ export class ImageService {
       }
     }
 
-    const oldImages = await this.imageRepository.find({
-      where: { resourceType, resourceId, status: 'permanent' as ImageStatus },
-    });
+    const oldImages = await this.imageRepository.findPermanentForResource(
+      resourceType,
+      resourceId,
+    );
 
     const newIdSet = new Set(imageIds);
     const toDelete = oldImages.filter((img) => !newIdSet.has(img.id));
-    for (const img of toDelete) {
-      await this.cloudinaryService.deleteAsset(img.publicId);
-      await this.imageRepository.remove(img);
+    if (toDelete.length > 0) {
+      await this.imageRepository.remove(toDelete);
+      await Promise.all(
+        toDelete.map((img) => this.cloudinaryService.deleteAsset(img.publicId)),
+      );
     }
 
     const ordered = imageIds.map((id) => images.find((img) => img.id === id)!);
     for (let i = 0; i < ordered.length; i++) {
-      ordered[i].status = 'permanent';
+      ordered[i].status = IMAGE_STATUS.PERMANENT;
       ordered[i].resourceType = resourceType;
       ordered[i].resourceId = resourceId;
       ordered[i].sortOrder = i;
     }
 
-    return this.imageRepository.save(ordered);
+    const saved = await this.imageRepository.save(ordered);
+    return saved.map((img) => this.toResult(img));
   }
 
   /**
@@ -95,19 +111,19 @@ export class ImageService {
    * Call this when the owning resource is deleted.
    */
   async deleteForResource(
-    resourceType: ResourceType,
+    resourceType: ImageResourceType,
     resourceId: string,
   ): Promise<void> {
-    const images = await this.imageRepository.find({
-      where: { resourceType, resourceId },
-    });
-
-    for (const image of images) {
-      await this.cloudinaryService.deleteAsset(image.publicId);
-    }
+    const images = await this.imageRepository.findAllForResource(
+      resourceType,
+      resourceId,
+    );
 
     if (images.length > 0) {
       await this.imageRepository.remove(images);
+      await Promise.all(
+        images.map((img) => this.cloudinaryService.deleteAsset(img.publicId)),
+      );
     }
   }
 
@@ -115,13 +131,14 @@ export class ImageService {
    * Finds all permanent images linked to a resource, ordered by sortOrder.
    */
   async findForResource(
-    resourceType: ResourceType,
+    resourceType: ImageResourceType,
     resourceId: string,
-  ): Promise<Image[]> {
-    return this.imageRepository.find({
-      where: { resourceType, resourceId, status: 'permanent' as ImageStatus },
-      order: { sortOrder: 'ASC' },
-    });
+  ): Promise<ImageResult[]> {
+    const images = await this.imageRepository.findPermanentForResource(
+      resourceType,
+      resourceId,
+    );
+    return images.map((img) => this.toResult(img));
   }
 
   /**
@@ -129,18 +146,14 @@ export class ImageService {
    * Eliminates N+1 when building list responses.
    */
   async findForResources(
-    resourceType: ResourceType,
+    resourceType: ImageResourceType,
     resourceIds: string[],
-  ): Promise<Image[]> {
-    if (resourceIds.length === 0) return [];
-    return this.imageRepository.find({
-      where: {
-        resourceType,
-        resourceId: In(resourceIds),
-        status: 'permanent' as ImageStatus,
-      },
-      order: { sortOrder: 'ASC' },
-    });
+  ): Promise<ImageResult[]> {
+    const images = await this.imageRepository.findPermanentForResources(
+      resourceType,
+      resourceIds,
+    );
+    return images.map((img) => this.toResult(img));
   }
 
   /**
@@ -149,12 +162,9 @@ export class ImageService {
    */
   async cleanupPendingOrphans(olderThanMs = 60 * 60 * 1000): Promise<void> {
     const cutoff = new Date(Date.now() - olderThanMs);
+    const orphans = await this.imageRepository.findPendingOlderThan(cutoff);
 
-    const orphans = await this.imageRepository.find({
-      where: { status: 'pending', createdAt: LessThan(cutoff) },
-    });
-
-    this.logger.debug(`Cleaning up ${orphans.length} orphaned pending images`);
+    this.logger.log(`Cleaning up ${orphans.length} orphaned pending images`);
 
     for (const image of orphans) {
       await this.cloudinaryService.deleteAsset(image.publicId);

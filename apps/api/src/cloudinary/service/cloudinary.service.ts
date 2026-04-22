@@ -3,17 +3,16 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
+import { UploadSignature } from '../types/cloudinary.types';
+
 /**
  * Service for handling media uploads and deletions using Cloudinary.
  */
 @Injectable()
 export class CloudinaryService {
   private readonly logger = new Logger(CloudinaryService.name);
-
-  /**
-   * The folder prefix that all uploaded assets must belong to.
-   */
   private readonly uploadFolder: string;
+  private readonly apiKey: string;
 
   /**
    * Creates an instance of the CloudinaryService.
@@ -21,9 +20,35 @@ export class CloudinaryService {
    * @param configService - The configuration service to access environment variables.
    */
   constructor(private readonly configService: ConfigService) {
-    this.uploadFolder = this.configService.getOrThrow<CloudinaryConfig>(
+    const config = this.configService.getOrThrow<CloudinaryConfig>(
       CLOUDINARY_CONFIG_TOKEN,
-    ).defaultFolder;
+    );
+    this.uploadFolder = config.defaultFolder;
+    this.apiKey = config.apiKey;
+  }
+
+  /**
+   * Generates a short-lived signed upload signature for direct browser uploads.
+   * The signature covers the folder and timestamp — expires after 1 hour per Cloudinary spec.
+   * The api_secret never leaves the server.
+   */
+  generateSignature(): UploadSignature {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paramsToSign = { folder: this.uploadFolder, timestamp };
+    const cloudinaryConfig = this.configService.getOrThrow<CloudinaryConfig>(
+      CLOUDINARY_CONFIG_TOKEN,
+    );
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      cloudinaryConfig.apiSecret,
+    );
+    return {
+      cloudName: cloudinaryConfig.cloudName,
+      signature,
+      timestamp,
+      apiKey: this.apiKey,
+      folder: this.uploadFolder,
+    };
   }
 
   /**

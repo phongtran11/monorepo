@@ -55,7 +55,6 @@ export function ImageUploadField({
       if (staged) {
         setStaged(null);
       }
-
       setIsUploading(true);
       setError(null);
       onChange('');

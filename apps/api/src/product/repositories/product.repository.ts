@@ -1,5 +1,5 @@
 import { Product } from '@api/product/entities/product.entity';
-import { ProductFilter } from '@api/product/interfaces';
+import { ProductFilter } from '@api/product/types';
 import { Injectable } from '@nestjs/common';
 import { DataSource, In, Repository } from 'typeorm';
 

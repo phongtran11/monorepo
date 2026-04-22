@@ -2,72 +2,175 @@
 
 Context for the NestJS backend (`apps/api`).
 
+---
+
 ## Architecture
 
-**Module Organization:**
+**Module structure:** Feature-based — `auth`, `user`, `category`, `product`, `cloudinary`
 
-- Feature-based modules: `auth`, `user`, `category`, `product`, `cloudinary`
-- Group related files into subfolders when >2 files of same type: `dto/`, `entities/`, `repositories/`, `services/`, `guard/`, `strategy/`
-- Global app bootstrap centralized in `src/common/factory/app.factory.ts`
+- Group related files into subfolders when >2 of same type: `dto/`, `entities/`, `repositories/`, `services/`, `ports/`, `types/`
 - `CloudinaryModule` is `@Global()` — no need to re-import in feature modules
+- App bootstrap: `src/common/factory/app.factory.ts`
+
+**Layer responsibilities:**
+
+| Layer      | Responsibility                             | Returns                 |
+| ---------- | ------------------------------------------ | ----------------------- |
+| Controller | Routing, HTTP concerns, Swagger decorators | `ApiResponseDto<T>`     |
+| Service    | Business logic, entity → interface mapping | Plain domain interfaces |
+| Repository | Database interaction                       | Entities                |
+| Entity     | DB schema only                             | —                       |
+
+---
 
 ## Key Patterns
 
-1. **Custom Repository Pattern**: Repositories extend TypeORM `Repository<T>`
+### 1. Custom Repository
 
-   ```typescript
-   @Injectable()
-   export class UserRepository extends Repository<User> {
-     constructor(protected dataSource: DataSource) {
-       super(User, dataSource.createEntityManager());
-     }
-   }
-   ```
+```typescript
+@Injectable()
+export class UserRepository extends Repository<User> {
+  constructor(protected dataSource: DataSource) {
+    super(User, dataSource.createEntityManager());
+  }
+}
+```
 
-2. **Response Envelope**: All API responses use `ApiResponseDto<T>`
+### 2. Response Envelope
 
-   ```typescript
-   return ApiResponseDto.success(data);
-   ```
+All responses use `ApiResponseDto<T>`:
 
-3. **DTO Validation**: Use `class-validator` decorators for request validation
+```typescript
+return ApiResponseDto.success(data);
+```
 
-4. **Response Serialization**: Use `class-transformer` with `@Exclude()` at class level and `@Expose()` on fields
+### 3. Response Serialization
 
-   ```typescript
-   return ApiResponseDto.success(
-     plainToInstance(CategoryResponseDto, categories),
-   );
-   ```
+Services map entities → plain domain interfaces. Controllers wrap and return — no `plainToInstance`.
 
-5. **Configuration**: Use `@nestjs/config` with dedicated config files in `src/config/`
-   - Environment variables validated with Zod schema in `src/config/env.validation.ts`
+```typescript
+// types/category.types.ts — no decorators
+export interface CategoryResult {
+  id: string;
+  name: string;
+  image: CategoryImageResult | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// category.service.ts
+async findOne(id: string): Promise<CategoryResult> {
+  const entity = await this.categoryRepository.findById(id);
+  const image = await this.imageService.findForResource('category', id);
+  return this.toResult(entity, image[0] ?? null);
+}
+
+// category.controller.ts
+async findOne(@Param('id') id: string): Promise<ApiResponseDto<CategoryResult>> {
+  return ApiResponseDto.success(await this.categoryService.findOne(id));
+}
+```
+
+`class-transformer` (`@Type`, `@Transform`) is valid for **request DTO deserialization** only — not for response mapping.
+
+### 4. Cross-Module Ports
+
+When a service needs to call into another module, use an abstract class port. Never inject a concrete `Service` or `Repository` from another module directly.
+
+**Scope rule:**
+
+- **Same module** → inject the concrete service (e.g. controller → `CategoryService`)
+- **Across modules** → inject the port (e.g. `CategoryService` → `ProductPort`)
+
+Ports expose only the methods that external callers actually need — not the full service contract.
+
+**Define** a port (abstract class, no decorators):
+
+```typescript
+// product/ports/product.port.ts
+export abstract class ProductPort {
+  abstract hasProductsInCategories(categoryIds: string[]): Promise<boolean>;
+}
+```
+
+**Implement** in the owning service:
+
+```typescript
+@Injectable()
+export class ProductService implements ProductPort {
+  async hasProductsInCategories(categoryIds: string[]): Promise<boolean> { ... }
+}
+```
+
+**Register** in the module (export the port, never the concrete class):
+
+```typescript
+@Module({
+  providers: [
+    ProductService,
+    ProductRepository,
+    { provide: ProductPort, useExisting: ProductService },
+  ],
+  exports: [ProductPort],
+})
+export class ProductModule {}
+```
+
+**Consume** in another module (no `@Inject()` needed — abstract class is the token):
+
+```typescript
+constructor(private readonly productPort: ProductPort) {}
+```
+
+**Module dependency direction** — strictly one-way:
+
+```
+AuthModule      → UserModule      (AuthService uses UserPort)
+CategoryModule  → ProductModule   (CategoryService uses ProductPort)
+ProductModule   → (nothing)       leaf module
+```
+
+**FK validation without ports** — for simple foreign key existence checks, let the DB constraint enforce it and translate the error rather than adding a reverse port dependency:
+
+```typescript
+try {
+  await this.dataSource.transaction(...);
+} catch (error) {
+  if (error instanceof QueryFailedError && (error as any).code === '23503') {
+    throw new NotFoundException('Danh mục không tồn tại');
+  }
+  throw error;
+}
+```
+
+### 5. Configuration
+
+Use `@nestjs/config` with dedicated config files in `src/config/`. Environment variables validated with Zod in `src/config/env.validation.ts`.
+
+---
 
 ## Authentication
 
-- JWT-based with access + refresh tokens
-- Two Passport strategies: `JwtStrategy`, `JwtRefreshStrategy`
-- Argon2 password hashing with secret (`PASSWORD_HASH_SECRET`)
-- Role-based access control (CUSTOMER, STAFF, ADMIN)
+- JWT access + refresh tokens
+- Strategies: `JwtStrategy`, `JwtRefreshStrategy`
+- Argon2 password hashing with `PASSWORD_HASH_SECRET`
+- Role-based access: `CUSTOMER`, `STAFF`, `ADMIN`
 
-### Session Entity & Rotation
+**Session rotation:** `Session` entity tracks refresh tokens by JTI.
 
-`Session` entity tracks every refresh token by JTI. Fields beyond basics:
+- `chainId` — shared across all tokens in a rotation chain; revoking one revokes all
+- `replayPayload` / `replayExpiresAt` — idempotent refresh within grace period
+- `revokedAt` — set on logout or reuse detection
 
-- `chainId` — shared by all tokens in a rotation chain; revoking one chain revokes all
-- `replayPayload` / `replayExpiresAt` — idempotent refresh: if a client replays an already-rotated token within the grace period, the rotated token is returned instead of an error
-- `revokedAt` — set when the session is explicitly revoked (logout / suspicious activity)
+---
 
 ## Database
 
-- PostgreSQL with TypeORM
-- Soft deletes via `@DeleteDateColumn`
-- Tree structure for categories using materialized-path
-- Atomic transactions for critical operations
+- PostgreSQL + TypeORM, soft deletes via `@DeleteDateColumn`
+- Category tree: `@Tree('materialized-path')`
+- Atomic operations use `dataSource.transaction()`
 
-### Money / Decimal Columns
-
-TypeORM returns `decimal` columns as `string` by default. For money fields, always attach a transformer so the entity property is `number`:
+**Money columns** — TypeORM returns `decimal` as `string`; always add a transformer:
 
 ```typescript
 @Column({
@@ -82,94 +185,85 @@ TypeORM returns `decimal` columns as `string` by default. For money fields, alwa
 price: number;
 ```
 
-- For `nullable: true` money columns, both the type (`number | null`) and the transformer's `from` must preserve null — never coerce null to 0 (conflates "missing" with "free").
-- Trust the `NOT NULL` constraint on non-nullable columns; do not add defensive null→0 fallbacks in the transformer.
+- `nullable: true` money columns: type must be `number | null` and transformer must preserve `null`
+- Non-nullable columns: trust the DB constraint, no defensive null→0 fallback
+
+**Nullable columns rule** — if `@Column` has `nullable: true`, TypeScript type MUST include `| null`:
+
+```typescript
+@Column({ type: 'varchar', length: 255, nullable: true })
+fullName: string | null;
+```
+
+---
 
 ## Image Management
 
-- Cloudinary for permanent storage
-- `TempUploadService` stages uploads under `temp/` with Redis-tracked `tempId`s
-- NestJS scheduler automatically purges expired temp uploads
-- Permanent folder convention: `uploads/<resource>/<YYYY-MM>` (use `formatYearMonth()` from shared)
-- `ProductImage` entity stores `imageUrl` + `imagePublicId` + `sortOrder`; declared as `cascade: ['insert', 'update']` on the product relation so images are persisted automatically during product create/update
+- Cloudinary for permanent storage; Redis tracks temp upload `tempId`s
+- Scheduler purges expired temp uploads automatically
+- Permanent folder: `uploads/<resource>/<YYYY-MM>` (use `formatYearMonth()` from shared)
 
-### External-Before-Transaction Pattern
+**External-Before-Transaction pattern** (see `CategoryService.create`, `ProductService.create`):
 
-When a create/update touches both Cloudinary and the DB, follow this pattern (see `CategoryService.create`, `ProductService.create`):
+1. Validate uniqueness first (no lock held)
+2. Run external work (Cloudinary, Redis) **before** opening the transaction
+3. Open transaction for DB operations only
+4. On DB failure: roll back Cloudinary assets in `catch`
+5. On update success: delete old assets post-transaction as best-effort cleanup
 
-1. **Validate** uniqueness and read-only lookups first (no lock held).
-2. **Pre-process external work BEFORE the transaction**: consume temp uploads, move assets to permanent folder. Collect results.
-3. **Open the DB transaction** containing _only_ DB operations — no Redis/Cloudinary calls inside.
-4. **On DB failure**: roll back the moved Cloudinary assets in the `catch` block (`cloudinaryService.deleteAsset`).
-5. **On success (update flow)**: delete the _old_ Cloudinary assets post-transaction as best-effort cleanup.
-
-Rationale: minimizes DB lock time, keeps rollback semantics sane, and orphaned assets from a crash between step 2 and 3 are reclaimed by the cleanup scheduler.
+---
 
 ## API Conventions
 
-- Global prefix: `/api`
-- Default versioning: `/v1`
-- Full endpoint format: `/api/v1/endpoint`
-- Swagger documentation at `/api/docs`
+- Global prefix: `/api/v1`
+- Swagger: `/api/docs`
 
-### Pagination & Filtering
+**Swagger** — always add on controllers and methods:
 
-For list endpoints (see `ProductService.findAll`):
+```typescript
+@ApiTags('categories')
+@ApiOperation({ summary: '...' })
+@ApiOkResponse({ type: ApiResponseOf(CategoryResponseDto) })
+```
 
-- Query DTO extends a `page`/`limit` shape with `@Type(() => Number)` + `@IsInt` + `@Min`/`@Max` (cap `limit` at 100).
-- Use `createQueryBuilder` with `.skip((page - 1) * limit).take(limit)` and `getManyAndCount()`.
-- Return a `{ items, total, page, limit }` envelope wrapped in `ApiResponseDto` via a dedicated `PaginatedXxxResponseDto`.
-- Use `ILIKE` with `%search%` for case-insensitive text search on Postgres.
+**Error messages** — Vietnamese for all `HttpException` messages.
 
-## API-Specific Standards
+**Pagination** (see `ProductService.findAll`):
 
-1. **Swagger**: Always add `@ApiTags`, `@ApiOperation`, `@ApiOkResponse`, `@ApiCreatedResponse` decorators. Use `ApiResponseOf(...)` for response types.
+- Query DTO: `page`/`limit` with `@Type(() => Number)` + `@IsInt` + `@Min`/`@Max` (cap at 100)
+- Query builder: `.skip((page - 1) * limit).take(limit).getManyAndCount()`
+- Response: `{ items, total, page, limit }` wrapped in `ApiResponseDto`
+- Text search: `ILIKE '%search%'`
 
-2. **Error Messages**: Use Vietnamese for all `HttpException` messages
-
-3. **TypeORM Entities**: Explicitly define TypeScript types for all columns
-   - **CRITICAL**: If `@Column` has `nullable: true`, TypeScript type MUST include `| null`
-
-   ```typescript
-   @Column({ type: 'varchar', length: 255, nullable: true })
-   fullName: string | null;  // ← Must include | null
-   ```
-
-4. **Environment Variables**: Add new variables to Zod validation schema in `src/config/env.validation.ts`
-
-## Testing
-
-- **Framework**: Jest 30 with ts-jest
-- **Unit tests**: `pnpm --filter @lam-thinh-ecommerce/api test`
-- **E2E tests**: `pnpm --filter @lam-thinh-ecommerce/api test:e2e`
-- **Coverage**: `pnpm --filter @lam-thinh-ecommerce/api test:cov`
-- **E2E Setup**: Use `bootstrapApp` factory from `src/common/factory/app.factory.ts`
-
-## Bulk Operations
-
-Bulk endpoints (e.g. bulk-delete categories) accept an array of IDs via a dedicated DTO:
+**Bulk operations** — dedicated DTO with UUID array:
 
 ```typescript
 export class BulkDeleteCategoryDto {
-  @IsUUID('all', { each: true })
   @IsArray()
+  @IsUUID('all', { each: true })
   ids: string[];
 }
 ```
 
-## Category Tree
+---
 
-Categories use TypeORM `@Tree('materialized-path')`:
+## Testing
 
-- `@TreeParent()` → `parent: Category | null`
-- `@TreeChildren()` → `children: Category[]`
-- `displayOrder` field controls sibling order; services sort recursively after retrieval
+- Jest 30 + ts-jest
+- Unit: `pnpm --filter @lam-thinh-ecommerce/api test`
+- E2E: `pnpm --filter @lam-thinh-ecommerce/api test:e2e`
+- Coverage: `pnpm --filter @lam-thinh-ecommerce/api test:cov`
+- E2E bootstrap: `bootstrapApp` from `src/common/factory/app.factory.ts`
+
+---
 
 ## Key Reference Files
 
-- **API response envelope**: `src/common/dto/api-response.dto.ts`
-- **Global app bootstrap**: `src/common/factory/app.factory.ts`
-- **Environment validation**: `src/config/env.validation.ts`
-- **Permission guards**: `src/auth/guard/` (jwt-auth, jwt-refresh-auth, permissions, roles)
-- **Custom decorators**: `src/common/decorator/` (current-user, permissions, roles)
-- **Swagger helpers**: `src/common/swagger/api-response.mixin.ts` (`ApiResponseOf(...)`)
+| Purpose                | Path                                       |
+| ---------------------- | ------------------------------------------ |
+| API response envelope  | `src/common/dto/api-response.dto.ts`       |
+| App bootstrap          | `src/common/factory/app.factory.ts`        |
+| Environment validation | `src/config/env.validation.ts`             |
+| Auth guards            | `src/auth/guard/`                          |
+| Custom decorators      | `src/common/decorator/`                    |
+| Swagger helpers        | `src/common/swagger/api-response.mixin.ts` |

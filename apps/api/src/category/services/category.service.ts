@@ -4,9 +4,14 @@ import {
   UpdateCategoryDto,
 } from '@api/category/dto';
 import { Category } from '@api/category/entities/category.entity';
+import { CategoryPort } from '@api/category/ports/category.port';
 import { CategoryRepository } from '@api/category/repositories/category.repository';
-import { Image } from '@api/cloudinary/entities';
+import { CategoryImageResult, CategoryResult } from '@api/category/types';
+import { IMAGE_RESOURCE_TYPE } from '@api/cloudinary/constants';
+import { CloudinaryService } from '@api/cloudinary/service/cloudinary.service';
 import { ImageService } from '@api/cloudinary/service/image.service';
+import { ImageResult } from '@api/cloudinary/types';
+import { ProductPort } from '@api/product/ports/product.port';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
@@ -15,25 +20,28 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 
 /**
  * Service for managing categories.
  */
 @Injectable()
-export class CategoryService {
+export class CategoryService implements CategoryPort {
   private readonly logger = new Logger(CategoryService.name);
 
   constructor(
     private readonly categoryRepository: CategoryRepository,
     private readonly imageService: ImageService,
+    private readonly cloudinaryService: CloudinaryService,
     private readonly dataSource: DataSource,
+    private readonly productPort: ProductPort,
   ) {}
 
   /**
    * Retrieves all categories in a tree structure with their images.
    */
-  async findAllTree(): Promise<Array<Category & { image: Image | null }>> {
+  async findAllTree(): Promise<CategoryResult[]> {
     const trees = await this.categoryRepository.findTrees();
     const sorted = this.sortCategoriesRecursive(trees);
     return this.attachImages(sorted);
@@ -44,7 +52,7 @@ export class CategoryService {
    *
    * @throws NotFoundException if the category is not found.
    */
-  async findOne(id: string): Promise<Category & { image: Image | null }> {
+  async findOne(id: string): Promise<CategoryResult> {
     const category = await this.categoryRepository.findById(id);
 
     if (!category) {
@@ -52,16 +60,21 @@ export class CategoryService {
     }
 
     const images = await this.imageService.findForResource('category', id);
-    return Object.assign(category, { image: images[0] ?? null });
+    return this.toResult(category, images[0] ?? null);
   }
 
   /**
    * Creates a new category with optional image attachment.
+   *
+   * Follows the external-before-transaction pattern:
+   * 1. Resolve the target category ID before opening the transaction.
+   * 2. Call markPermanent (Cloudinary + DB) before the transaction so the DB lock time is minimal.
+   * 3. On transaction failure, roll back the just-marked image by deleting the Cloudinary asset.
    */
   async create(
     dto: CreateCategoryDto,
     userId: string,
-  ): Promise<Category & { image: Image | null }> {
+  ): Promise<CategoryResult> {
     const slug = slugify(dto.name);
 
     const existingSlug = await this.categoryRepository.findBySlug(slug);
@@ -70,71 +83,79 @@ export class CategoryService {
       throw new ConflictException('Slug danh mục đã tồn tại');
     }
 
-    const savedId = await this.dataSource.transaction(async (manager) => {
-      const categoryRepository = manager.getRepository(Category);
+    // Resolve the category ID before the transaction so markPermanent can run first.
+    // Restore path: reuse the soft-deleted record's existing ID.
+    // Create path: generate a new UUID upfront.
+    const resolvedId = existingSlug?.deletedAt ? existingSlug.id : randomUUID();
 
-      let parent: Category | null = null;
-      if (dto.parentId) {
-        parent = await categoryRepository.findOne({
-          where: { id: dto.parentId },
-        });
-
-        if (!parent) {
-          throw new NotFoundException('Danh mục cha không tồn tại');
-        }
-      }
-
-      const treeRepository = manager.getTreeRepository(Category);
-
-      if (existingSlug?.deletedAt) {
-        const toRestore = await treeRepository.findOne({
-          where: { id: existingSlug.id },
-          withDeleted: true,
-        });
-
-        if (!toRestore) {
-          throw new NotFoundException('Danh mục không tồn tại');
-        }
-
-        toRestore.name = dto.name;
-        toRestore.displayOrder = dto.displayOrder ?? toRestore.displayOrder;
-        toRestore.parent = parent;
-        toRestore.deletedAt = null;
-
-        const restored = await treeRepository.save(toRestore);
-        return restored.id;
-      }
-
-      const category = treeRepository.create({
-        name: dto.name,
-        slug,
-        displayOrder: dto.displayOrder,
-        parent,
-      });
-
-      const saved = await treeRepository.save(category);
-      return saved.id;
-    });
-
-    // TODO: Ask claude why not move this to transaction
+    let markedImage: ImageResult[] | null = null;
     if (dto.imageId) {
-      try {
-        await this.imageService.markPermanent(
-          [dto.imageId],
-          'category',
-          savedId,
-          userId,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to mark image permanent for category ${savedId}`,
-          error,
-        );
-        throw error;
-      }
+      markedImage = await this.imageService.markPermanent(
+        [dto.imageId],
+        'category',
+        resolvedId,
+        userId,
+      );
     }
 
-    return this.findOne(savedId);
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const categoryRepository = manager.getRepository(Category);
+
+        let parent: Category | null = null;
+        if (dto.parentId) {
+          parent = await categoryRepository.findOne({
+            where: { id: dto.parentId },
+          });
+
+          if (!parent) {
+            throw new NotFoundException('Danh mục cha không tồn tại');
+          }
+        }
+
+        const treeRepository = manager.getTreeRepository(Category);
+
+        if (existingSlug?.deletedAt) {
+          const toRestore = await treeRepository.findOne({
+            where: { id: existingSlug.id },
+            withDeleted: true,
+          });
+
+          if (!toRestore) {
+            throw new NotFoundException('Danh mục không tồn tại');
+          }
+
+          toRestore.name = dto.name;
+          toRestore.displayOrder = dto.displayOrder ?? toRestore.displayOrder;
+          toRestore.parent = parent;
+          toRestore.deletedAt = null;
+
+          await treeRepository.save(toRestore);
+          return;
+        }
+
+        const category = treeRepository.create({
+          id: resolvedId,
+          name: dto.name,
+          slug,
+          displayOrder: dto.displayOrder,
+          parent,
+        });
+
+        await treeRepository.save(category);
+      });
+    } catch (error) {
+      if (markedImage) {
+        await Promise.allSettled(
+          markedImage.map((img) =>
+            this.cloudinaryService.deleteAsset(img.publicId),
+          ),
+        );
+      }
+      throw error;
+    }
+
+    return this.findOne(resolvedId);
   }
 
   /**
@@ -144,8 +165,8 @@ export class CategoryService {
     id: string,
     dto: UpdateCategoryDto,
     userId: string,
-  ): Promise<Category & { image: Image | null }> {
-    const result = await this.dataSource.transaction(async (manager) => {
+  ): Promise<CategoryResult> {
+    await this.dataSource.transaction(async (manager) => {
       const categoryRepo = manager.getRepository(Category);
 
       const category = await categoryRepo.findOne({
@@ -206,7 +227,7 @@ export class CategoryService {
         }
       }
 
-      return categoryRepo.save(category);
+      await categoryRepo.save(category);
     });
 
     if (dto.imageId !== undefined) {
@@ -222,7 +243,16 @@ export class CategoryService {
       }
     }
 
-    return this.findOne(result.id);
+    return this.findOne(id);
+  }
+
+  /**
+   * Returns true if a category with the given ID exists (not soft-deleted).
+   * Implements CategoryPort — used by ProductService for validation.
+   */
+  async exists(id: string): Promise<boolean> {
+    const category = await this.categoryRepository.findById(id);
+    return category !== null;
   }
 
   /**
@@ -248,8 +278,16 @@ export class CategoryService {
       );
     }
 
+    const hasProducts = await this.productPort.hasProductsInCategories(ids);
+    if (hasProducts) {
+      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+    }
+
     for (const category of categories) {
-      await this.imageService.deleteForResource('category', category.id);
+      await this.imageService.deleteForResource(
+        IMAGE_RESOURCE_TYPE.CATEGORY,
+        category.id,
+      );
     }
 
     await this.categoryRepository.softRemove(categories);
@@ -271,7 +309,12 @@ export class CategoryService {
       );
     }
 
-    await this.imageService.deleteForResource('category', id);
+    const hasProducts = await this.productPort.hasProductsInCategories([id]);
+    if (hasProducts) {
+      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+    }
+
+    await this.imageService.deleteForResource(IMAGE_RESOURCE_TYPE.CATEGORY, id);
     await this.categoryRepository.softRemove(category);
   }
 
@@ -290,15 +333,42 @@ export class CategoryService {
   }
 
   /**
-   * Batch-loads images for an entire category tree and assigns them recursively.
+   * Maps a category entity and its image to a domain result interface.
+   */
+  private toResult(
+    category: Category,
+    image: ImageResult | null,
+  ): CategoryResult {
+    return {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      displayOrder: category.displayOrder,
+      image: this.toImageResult(image),
+      children: category.children?.map((child) => this.toResult(child, null)),
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
+    };
+  }
+
+  /**
+   * Maps an image result to a category image result interface.
+   */
+  private toImageResult(image: ImageResult | null): CategoryImageResult | null {
+    if (!image) return null;
+    return { id: image.id, secureUrl: image.secureUrl };
+  }
+
+  /**
+   * Batch-loads images for an entire category tree and maps to domain results.
    */
   private async attachImages(
     categories: Category[],
-  ): Promise<Array<Category & { image: Image | null }>> {
+  ): Promise<CategoryResult[]> {
     const allIds = this.collectIds(categories);
     const images = await this.imageService.findForResources('category', allIds);
     const imageMap = new Map(images.map((img) => [img.resourceId, img]));
-    return this.assignImages(categories, imageMap);
+    return this.mapWithImages(categories, imageMap);
   }
 
   /**
@@ -312,17 +382,27 @@ export class CategoryService {
   }
 
   /**
-   * Recursively assigns the matching image to each category node.
+   * Recursively maps category entities to domain results, assigning images from the map.
    */
-  private assignImages(
+  private mapWithImages(
     categories: Category[],
-    imageMap: Map<string | null, Image>,
-  ): Array<Category & { image: Image | null }> {
+    imageMap: Map<string | null, ImageResult>,
+  ): CategoryResult[] {
     return categories.map((cat) => {
-      if (cat.children?.length) {
-        cat.children = this.assignImages(cat.children, imageMap) as Category[];
-      }
-      return Object.assign(cat, { image: imageMap.get(cat.id) ?? null });
+      const image = imageMap.get(cat.id) ?? null;
+      const children = cat.children?.length
+        ? this.mapWithImages(cat.children, imageMap)
+        : undefined;
+      return {
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        displayOrder: cat.displayOrder,
+        image: this.toImageResult(image),
+        children,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+      };
     });
   }
 }

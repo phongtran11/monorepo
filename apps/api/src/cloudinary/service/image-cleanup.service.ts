@@ -1,6 +1,6 @@
 import { ImageService } from '@api/cloudinary/service/image.service';
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 /**
  * Service that runs a periodic cron job to clean up orphaned pending images.
@@ -21,7 +21,7 @@ export class ImageCleanupService {
   /**
    * Runs every hour to purge abandoned pending uploads.
    */
-  @Cron('0 * * * *')
+  @Cron(CronExpression.EVERY_HOUR)
   async handlePendingImageCleanup(): Promise<void> {
     this.logger.debug('Running pending image cleanup cron');
     try {

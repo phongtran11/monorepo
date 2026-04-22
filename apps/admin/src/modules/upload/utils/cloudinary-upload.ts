@@ -1,31 +1,36 @@
-import { registerUploadAction } from '../actions';
+import { getUploadSignatureAction, registerUploadAction } from '../actions';
 
 /**
- * Uploads a file to Cloudinary via the 2-step unsigned preset flow:
- * 1. Upload directly from the browser to Cloudinary using an unsigned preset
- * 2. Register the uploaded asset with the backend to receive an imageId
+ * Uploads a file to Cloudinary via the 2-step signed upload flow:
+ * 1. Fetch a short-lived upload signature from the backend (api_secret never leaves server)
+ * 2. Upload directly from the browser to Cloudinary using the signed params
+ * 3. Register the uploaded asset with the backend to receive an imageId
  *
  * Returns `{ imageId, previewUrl }` on success, or `null` on any failure.
  */
 export async function uploadToCloudinary(
   file: File,
 ): Promise<{ imageId: string; previewUrl: string } | null> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  // Step 1: fetch signed upload params from the backend
+  const signResult = await getUploadSignatureAction();
 
-  if (!cloudName || !uploadPreset) {
-    return null;
-  }
+  if (!signResult.success || !signResult.data) return null;
 
-  // Step 1: upload directly from the browser to Cloudinary via unsigned preset
+  const { signature, timestamp, apiKey, folder, cloudName } = signResult.data;
+  const imageUploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+  // Step 2: upload directly from the browser to Cloudinary using signed params
   const cloudinaryForm = new FormData();
   cloudinaryForm.append('file', file);
-  cloudinaryForm.append('upload_preset', uploadPreset);
+  cloudinaryForm.append('signature', signature);
+  cloudinaryForm.append('timestamp', String(timestamp));
+  cloudinaryForm.append('api_key', apiKey);
+  cloudinaryForm.append('folder', folder);
 
-  const cloudRes = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: cloudinaryForm },
-  );
+  const cloudRes = await fetch(imageUploadUrl, {
+    method: 'POST',
+    body: cloudinaryForm,
+  });
 
   if (!cloudRes.ok) return null;
 
@@ -34,7 +39,7 @@ export async function uploadToCloudinary(
     secure_url: string;
   };
 
-  // Step 2: register with the backend to get an imageId
+  // Step 3: register with the backend to get an imageId
   const result = await registerUploadAction(public_id, secure_url);
   if (!result.success || !result.data) return null;
 

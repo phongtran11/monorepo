@@ -1,4 +1,8 @@
-import { ResourceType } from '@api/common/constants';
+import {
+  IMAGE_STATUS,
+  ImageResourceType,
+  type ImageStatus,
+} from '@api/cloudinary/constants';
 import {
   Column,
   CreateDateColumn,
@@ -8,13 +12,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-
-/**
- * Lifecycle status of a tracked image.
- * - pending: uploaded to Cloudinary, not yet linked to a resource
- * - permanent: verified and linked to a resource
- */
-export type ImageStatus = 'pending' | 'permanent';
 
 /**
  * Shared entity that tracks every Cloudinary image across all resource types.
@@ -49,7 +46,7 @@ export class Image {
    * - pending: uploaded, awaiting form submission
    * - permanent: linked to a resource
    */
-  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  @Column({ type: 'varchar', length: 20, default: IMAGE_STATUS.PENDING })
   status: ImageStatus;
 
   /**
@@ -62,7 +59,7 @@ export class Image {
     name: 'resource_type',
     nullable: true,
   })
-  resourceType: ResourceType | null;
+  resourceType: ImageResourceType | null;
 
   /**
    * The ID of the resource this image is linked to.

@@ -26,6 +26,7 @@ import {
   validate,
 } from './config';
 import { ProductModule } from './product/product.module';
+import { UploadModule } from './upload/upload.module';
 
 /**
  * Root module for the NestJS application.
@@ -97,6 +98,7 @@ import { ProductModule } from './product/product.module';
     CategoryModule,
     CloudinaryModule,
     ProductModule,
+    UploadModule,
   ],
 })
 export class AppModule {}

@@ -29,6 +29,7 @@ export function ImageViewer({
 }: ImageViewerProps) {
   const [scale, setScale] = React.useState(1);
   const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+  const [isDraggingState, setIsDraggingState] = React.useState(false);
   const isDragging = React.useRef(false);
   const dragStart = React.useRef({ x: 0, y: 0, ox: 0, oy: 0 });
 
@@ -51,6 +52,7 @@ export function ImageViewer({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (scale <= 1) return;
     isDragging.current = true;
+    setIsDraggingState(true);
     dragStart.current = {
       x: e.clientX,
       y: e.clientY,
@@ -70,6 +72,7 @@ export function ImageViewer({
 
   const handlePointerUp = () => {
     isDragging.current = false;
+    setIsDraggingState(false);
   };
 
   return (
@@ -105,11 +108,7 @@ export function ImageViewer({
             className="flex max-h-[85vh] max-w-[90vw] items-center justify-center overflow-hidden"
             style={{
               cursor:
-                scale > 1
-                  ? isDragging.current
-                    ? 'grabbing'
-                    : 'grab'
-                  : 'default',
+                scale > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -124,9 +123,7 @@ export function ImageViewer({
               height={1024}
               style={{
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                transition: isDragging.current
-                  ? 'none'
-                  : 'transform 150ms ease',
+                transition: isDraggingState ? 'none' : 'transform 150ms ease',
               }}
               className="max-h-[85vh] max-w-[90vw] rounded-md object-contain"
               draggable={false}

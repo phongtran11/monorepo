@@ -1,7 +1,7 @@
 import { TokenDto } from '@api/auth/dto/token.dto';
 import { Env } from '@api/config';
+import { UserPort } from '@api/user/ports/user.port';
 import { User } from '@api/user/user.entity';
-import { UserService } from '@api/user/user.service';
 import { AccountStatus } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
@@ -36,7 +36,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly userService: UserService,
+    private readonly userService: UserPort,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<Env>,
     private readonly sessionRepository: SessionRepository,

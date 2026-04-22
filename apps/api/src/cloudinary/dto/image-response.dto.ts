@@ -1,10 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
 
 /**
  * Data transfer object for image registration responses.
  */
-@Exclude()
 export class ImageResponseDto {
   /**
    * The database ID of the registered image record.
@@ -14,7 +12,6 @@ export class ImageResponseDto {
     description: 'The database ID of the registered image record.',
     example: 'uuid',
   })
-  @Expose()
   id: string;
 
   /**
@@ -24,7 +21,6 @@ export class ImageResponseDto {
     description: 'The Cloudinary secure URL for displaying the image.',
     example: 'https://res.cloudinary.com/demo/image/upload/v1/uploads/abc123',
   })
-  @Expose()
   secureUrl: string;
 
   /**
@@ -34,6 +30,5 @@ export class ImageResponseDto {
     description: 'Display sort order (0 = primary image).',
     example: 0,
   })
-  @Expose()
   sortOrder: number;
 }

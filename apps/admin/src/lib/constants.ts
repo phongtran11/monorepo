@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     BASE: '/products',
   },
   UPLOAD: {
+    SIGN: '/upload/sign',
     REGISTER: '/upload/register',
   },
 };

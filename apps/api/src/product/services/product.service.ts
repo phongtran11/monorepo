@@ -1,6 +1,6 @@
-import { Category } from '@api/category/entities/category.entity';
-import { Image } from '@api/cloudinary/entities';
+import { IMAGE_RESOURCE_TYPE } from '@api/cloudinary/constants';
 import { ImageService } from '@api/cloudinary/service/image.service';
+import { ImageResult } from '@api/cloudinary/types';
 import {
   BulkDeleteProductDto,
   CreateProductDto,
@@ -8,7 +8,13 @@ import {
   UpdateProductDto,
 } from '@api/product/dto';
 import { Product } from '@api/product/entities/product.entity';
+import { ProductPort } from '@api/product/ports/product.port';
 import { ProductRepository } from '@api/product/repositories/product.repository';
+import {
+  PaginatedProductsResult,
+  ProductImageResult,
+  ProductResult,
+} from '@api/product/types';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
@@ -16,23 +22,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-
-/**
- * Paginated query result for products.
- */
-export interface PaginatedProducts {
-  items: Array<Product & { images: Image[] }>;
-  total: number;
-  page: number;
-  limit: number;
-}
+import { DataSource, QueryFailedError } from 'typeorm';
 
 /**
  * Service for managing products.
  */
 @Injectable()
-export class ProductService {
+export class ProductService implements ProductPort {
   private readonly logger = new Logger(ProductService.name);
 
   constructor(
@@ -44,9 +40,9 @@ export class ProductService {
   /**
    * Retrieves a paginated list of products with optional filtering.
    */
-  async findAll(query: ProductQueryDto): Promise<PaginatedProducts> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+  async findAll(query: ProductQueryDto): Promise<PaginatedProductsResult> {
+    const page = query.page;
+    const limit = query.limit;
 
     const [products, total] = await this.productRepository.findPaginated({
       page,
@@ -57,11 +53,11 @@ export class ProductService {
     });
 
     const images = await this.imageService.findForResources(
-      'product',
+      IMAGE_RESOURCE_TYPE.PRODUCT,
       products.map((p) => p.id),
     );
 
-    const imagesByProduct = new Map<string, Image[]>();
+    const imagesByProduct = new Map<string, ImageResult[]>();
     for (const img of images) {
       if (!img.resourceId) continue;
       const list = imagesByProduct.get(img.resourceId) ?? [];
@@ -70,7 +66,7 @@ export class ProductService {
     }
 
     const items = products.map((p) =>
-      Object.assign(p, { images: imagesByProduct.get(p.id) ?? [] }),
+      this.toResult(p, imagesByProduct.get(p.id) ?? []),
     );
 
     return { items, total, page, limit };
@@ -81,7 +77,7 @@ export class ProductService {
    *
    * @throws NotFoundException if the product is not found.
    */
-  async findOne(id: string): Promise<Product & { images: Image[] }> {
+  async findOne(id: string): Promise<ProductResult> {
     const product = await this.productRepository.findById(id);
 
     if (!product) {
@@ -89,50 +85,46 @@ export class ProductService {
     }
 
     const images = await this.imageService.findForResource('product', id);
-    return Object.assign(product, { images });
+    return this.toResult(product, images);
   }
 
   /**
    * Creates a new product, then links any provided images as permanent.
    */
-  async create(
-    dto: CreateProductDto,
-    userId: string,
-  ): Promise<Product & { images: Image[] }> {
+  async create(dto: CreateProductDto, userId: string): Promise<ProductResult> {
     const slug = slugify(dto.name);
 
     await this.assertSlugAvailable(slug);
     await this.assertSkuAvailable(dto.sku);
 
-    const product = await this.dataSource.transaction(async (manager) => {
-      const productRepo = manager.getRepository(Product);
-      const categoryRepo = manager.getRepository(Category);
+    let product: Product;
+    try {
+      product = await this.dataSource.transaction(async (manager) => {
+        const productRepo = manager.getRepository(Product);
 
-      const category = await categoryRepo.findOne({
-        where: { id: dto.categoryId },
+        const newProduct = productRepo.create({
+          name: dto.name,
+          slug,
+          sku: dto.sku,
+          shortDescription: dto.shortDescription ?? null,
+          description: dto.description ?? null,
+          price: dto.price,
+          compareAtPrice: dto.compareAtPrice ?? null,
+          stock: dto.stock ?? 0,
+          status: dto.status,
+          categoryId: dto.categoryId,
+        });
+
+        return productRepo.save(newProduct);
       });
-
-      if (!category) {
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.name === '23503') {
         throw new NotFoundException('Danh mục không tồn tại');
       }
+      throw error;
+    }
 
-      const newProduct = productRepo.create({
-        name: dto.name,
-        slug,
-        sku: dto.sku,
-        shortDescription: dto.shortDescription ?? null,
-        description: dto.description ?? null,
-        price: dto.price,
-        compareAtPrice: dto.compareAtPrice ?? null,
-        stock: dto.stock ?? 0,
-        status: dto.status,
-        categoryId: category.id,
-      });
-
-      return productRepo.save(newProduct);
-    });
-
-    let images: Image[] = [];
+    let images: ImageResult[] = [];
     if (dto.imageIds && dto.imageIds.length > 0) {
       try {
         images = await this.imageService.markPermanent(
@@ -150,7 +142,7 @@ export class ProductService {
       }
     }
 
-    return Object.assign(product, { images });
+    return this.toResult(product, images);
   }
 
   /**
@@ -160,65 +152,66 @@ export class ProductService {
     id: string,
     dto: UpdateProductDto,
     userId: string,
-  ): Promise<Product & { images: Image[] }> {
-    const product = await this.dataSource.transaction(async (manager) => {
-      const productRepo = manager.getRepository(Product);
-      const categoryRepo = manager.getRepository(Category);
+  ): Promise<ProductResult> {
+    let product: Product;
+    try {
+      product = await this.dataSource.transaction(async (manager) => {
+        const productRepo = manager.getRepository(Product);
 
-      const existing = await productRepo.findOne({ where: { id } });
+        const existing = await productRepo.findOne({ where: { id } });
 
-      if (!existing) {
-        throw new NotFoundException('Sản phẩm không tồn tại');
-      }
-
-      if (dto.name && dto.name !== existing.name) {
-        const newSlug = slugify(dto.name);
-        const slugConflict = await productRepo.findOne({
-          where: { slug: newSlug },
-          withDeleted: true,
-        });
-        if (slugConflict && slugConflict.id !== id) {
-          throw new ConflictException('Slug sản phẩm đã tồn tại');
+        if (!existing) {
+          throw new NotFoundException('Sản phẩm không tồn tại');
         }
-        existing.name = dto.name;
-        existing.slug = newSlug;
-      }
 
-      if (dto.sku && dto.sku !== existing.sku) {
-        const skuConflict = await productRepo.findOne({
-          where: { sku: dto.sku },
-          withDeleted: true,
-        });
-        if (skuConflict && skuConflict.id !== id) {
-          throw new ConflictException('SKU sản phẩm đã tồn tại');
+        if (dto.name && dto.name !== existing.name) {
+          const newSlug = slugify(dto.name);
+          const slugConflict = await productRepo.findOne({
+            where: { slug: newSlug },
+            withDeleted: true,
+          });
+          if (slugConflict && slugConflict.id !== id) {
+            throw new ConflictException('Slug sản phẩm đã tồn tại');
+          }
+          existing.name = dto.name;
+          existing.slug = newSlug;
         }
-        existing.sku = dto.sku;
-      }
 
-      if (dto.categoryId && dto.categoryId !== existing.categoryId) {
-        const category = await categoryRepo.findOne({
-          where: { id: dto.categoryId },
-        });
-        if (!category) {
-          throw new NotFoundException('Danh mục không tồn tại');
+        if (dto.sku && dto.sku !== existing.sku) {
+          const skuConflict = await productRepo.findOne({
+            where: { sku: dto.sku },
+            withDeleted: true,
+          });
+          if (skuConflict && skuConflict.id !== id) {
+            throw new ConflictException('SKU sản phẩm đã tồn tại');
+          }
+          existing.sku = dto.sku;
         }
-        existing.categoryId = category.id;
+
+        if (dto.categoryId) {
+          existing.categoryId = dto.categoryId;
+        }
+
+        if (dto.shortDescription !== undefined)
+          existing.shortDescription = dto.shortDescription ?? null;
+        if (dto.description !== undefined)
+          existing.description = dto.description ?? null;
+        if (dto.price !== undefined) existing.price = dto.price;
+        if (dto.compareAtPrice !== undefined)
+          existing.compareAtPrice = dto.compareAtPrice ?? null;
+        if (dto.stock !== undefined) existing.stock = dto.stock;
+        if (dto.status !== undefined) existing.status = dto.status;
+
+        return productRepo.save(existing);
+      });
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.message === '23503') {
+        throw new NotFoundException('Danh mục không tồn tại');
       }
+      throw error;
+    }
 
-      if (dto.shortDescription !== undefined)
-        existing.shortDescription = dto.shortDescription ?? null;
-      if (dto.description !== undefined)
-        existing.description = dto.description ?? null;
-      if (dto.price !== undefined) existing.price = dto.price;
-      if (dto.compareAtPrice !== undefined)
-        existing.compareAtPrice = dto.compareAtPrice ?? null;
-      if (dto.stock !== undefined) existing.stock = dto.stock;
-      if (dto.status !== undefined) existing.status = dto.status;
-
-      return productRepo.save(existing);
-    });
-
-    let images: Image[];
+    let images: ImageResult[];
     if (dto.imageIds && dto.imageIds.length > 0) {
       images = await this.imageService.markPermanent(
         dto.imageIds,
@@ -230,7 +223,7 @@ export class ProductService {
       images = await this.imageService.findForResource('product', product.id);
     }
 
-    return Object.assign(product, { images });
+    return this.toResult(product, images);
   }
 
   /**
@@ -261,6 +254,39 @@ export class ProductService {
     await this.productRepository.softRemove(product);
   }
 
+  /**
+   * Maps a product entity and its images to a domain result interface.
+   */
+  private toResult(product: Product, images: ImageResult[]): ProductResult {
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      shortDescription: product.shortDescription,
+      description: product.description,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      stock: product.stock,
+      status: product.status,
+      categoryId: product.categoryId,
+      images: images.map((img) => this.toImageResult(img)),
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+  }
+
+  /**
+   * Maps an image entity to a domain image result interface.
+   */
+  private toImageResult(image: ImageResult): ProductImageResult {
+    return {
+      id: image.id,
+      secureUrl: image.secureUrl,
+      sortOrder: image.sortOrder,
+    };
+  }
+
   private async assertSlugAvailable(slug: string): Promise<void> {
     const existing = await this.productRepository.findBySlug(slug);
     if (existing) {
@@ -273,5 +299,18 @@ export class ProductService {
     if (existing) {
       throw new ConflictException('SKU sản phẩm đã tồn tại');
     }
+  }
+
+  /**
+   * Returns true if any active product references one of the given category IDs.
+   * Implements ProductPort — used by CategoryService for deletion guards.
+   */
+  async hasProductsInCategories(categoryIds: string[]): Promise<boolean> {
+    const count = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId IN (:...categoryIds)', { categoryIds })
+      .getCount();
+
+    return count > 0;
   }
 }
