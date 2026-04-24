@@ -23,7 +23,6 @@ export const loggerConfig = registerAs(
             id: req.id,
             method: req.method,
             url: req.url,
-            authorization: req.headers['authorization'],
           };
         },
       },

@@ -1,8 +1,8 @@
 import { AppModule } from '@api/app.module';
-import { SessionRepository } from '@api/auth/session.repository';
-import { ApiResponseDto, bootstrapApp } from '@api/common';
-import { User } from '@api/user/user.entity';
-import { UserRepository } from '@api/user/user.repository';
+import { ApiResponseDto, bootstrapApp } from '@api/lib/common';
+import { SessionRepository } from '@api/modules/auth/session.repository';
+import { User } from '@api/modules/user/user.entity';
+import { UserRepository } from '@api/modules/user/user.repository';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';

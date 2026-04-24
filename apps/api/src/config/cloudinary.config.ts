@@ -10,7 +10,7 @@ export const cloudinaryConfig = registerAs(CLOUDINARY_CONFIG_TOKEN, () => ({
   cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
   apiKey: process.env.CLOUDINARY_API_KEY!,
   apiSecret: process.env.CLOUDINARY_API_SECRET!,
-  defaultFolder: process.env.CLOUDINARY_DEFAULT_FOLDER || 'uploads',
+  defaultFolder: process.env.CLOUDINARY_DEFAULT_FOLDER!,
 }));
 
 /**

@@ -4,10 +4,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 
-import { AuthModule } from './auth/auth.module';
-import { CategoryModule } from './category/category.module';
-import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { DBLogger } from './common';
 import {
   APP_CONFIG_TOKEN,
   AppConfig,
@@ -25,8 +21,13 @@ import {
   redisConfig,
   validate,
 } from './config';
-import { ProductModule } from './product/product.module';
-import { UploadModule } from './upload/upload.module';
+import { CloudinaryModule } from './lib/cloudinary/cloudinary.module';
+import { DBLogger } from './lib/common';
+import { AuthModule } from './modules/auth/auth.module';
+import { CategoryModule } from './modules/category/category.module';
+import { ImageModule } from './modules/image/image.module';
+import { ProductModule } from './modules/product/product.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 /**
  * Root module for the NestJS application.
@@ -97,6 +98,7 @@ import { UploadModule } from './upload/upload.module';
     AuthModule,
     CategoryModule,
     CloudinaryModule,
+    ImageModule,
     ProductModule,
     UploadModule,
   ],
