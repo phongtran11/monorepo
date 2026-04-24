@@ -7,7 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
-import { bootstrapApp } from './common';
+import { bootstrapApp } from './lib/common';
 
 /**
  * Bootstraps the NestJS application.

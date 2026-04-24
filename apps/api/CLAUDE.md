@@ -6,11 +6,15 @@ Context for the NestJS backend (`apps/api`).
 
 ## Architecture
 
-**Module structure:** Feature-based — `auth`, `user`, `category`, `product`, `cloudinary`
+**Module structure:** Two top-level groupings inside `src/`:
+
+- `src/modules/` — feature modules: `auth`, `user`, `category`, `product`, `image`, `upload`
+- `src/lib/` — infrastructure shared across modules: `common/` (decorators, DTOs, filters, factory, logger, swagger), `redis/`, and `cloudinary/` (SDK wrapper)
+- `src/config/` — environment config and Zod validation (top-level, unchanged)
 
 - Group related files into subfolders when >2 of same type: `dto/`, `entities/`, `repositories/`, `services/`, `ports/`, `types/`
 - `CloudinaryModule` is `@Global()` — no need to re-import in feature modules
-- App bootstrap: `src/common/factory/app.factory.ts`
+- App bootstrap: `src/lib/common/factory/app.factory.ts`
 
 **Layer responsibilities:**
 
@@ -259,11 +263,11 @@ export class BulkDeleteCategoryDto {
 
 ## Key Reference Files
 
-| Purpose                | Path                                       |
-| ---------------------- | ------------------------------------------ |
-| API response envelope  | `src/common/dto/api-response.dto.ts`       |
-| App bootstrap          | `src/common/factory/app.factory.ts`        |
-| Environment validation | `src/config/env.validation.ts`             |
-| Auth guards            | `src/auth/guard/`                          |
-| Custom decorators      | `src/common/decorator/`                    |
-| Swagger helpers        | `src/common/swagger/api-response.mixin.ts` |
+| Purpose                | Path                                           |
+| ---------------------- | ---------------------------------------------- |
+| API response envelope  | `src/lib/common/dto/api-response.dto.ts`       |
+| App bootstrap          | `src/lib/common/factory/app.factory.ts`        |
+| Environment validation | `src/config/env.validation.ts`                 |
+| Auth guards            | `src/modules/auth/guard/`                      |
+| Custom decorators      | `src/lib/common/decorator/`                    |
+| Swagger helpers        | `src/lib/common/swagger/api-response.mixin.ts` |
