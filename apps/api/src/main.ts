@@ -1,12 +1,13 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import {
   ExpressAdapter,
   NestExpressApplication,
 } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { APP_CONFIG_TOKEN, AppConfig } from './config';
 import { bootstrapApp } from './lib/common';
 
 /**
@@ -34,13 +35,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0', () => {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const apiUrl = isProduction
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : `http://localhost:${process.env.PORT ?? 3000}`;
+  const env = app.get(ConfigService).getOrThrow<AppConfig>(APP_CONFIG_TOKEN);
 
-    app.get(Logger).log(`API is running on ${apiUrl}/api/docs`, 'Bootstrap');
-  });
+  await app.listen(env.port ?? 3000, '0.0.0.0');
 }
 void bootstrap();

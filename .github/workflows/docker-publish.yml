@@ -91,26 +91,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=admin
           cache-to: type=gha,scope=admin,mode=max
-
-  deploy:
-    name: Trigger Railway Deploy
-    runs-on: ubuntu-latest
-    needs: [build-api, build-admin]
-    # Set RAILWAY_API_WEBHOOK and RAILWAY_ADMIN_WEBHOOK in repo secrets
-    # Railway: service → Settings → Deploy → Deploy Webhook
-    steps:
-      - name: Deploy API
-        run: |
-          if [ -n "$WEBHOOK_URL" ]; then
-            curl -fsSL -X POST "$WEBHOOK_URL"
-          fi
-        env:
-          WEBHOOK_URL: ${{ secrets.RAILWAY_API_WEBHOOK }}
-
-      - name: Deploy Admin
-        run: |
-          if [ -n "$WEBHOOK_URL" ]; then
-            curl -fsSL -X POST "$WEBHOOK_URL"
-          fi
-        env:
-          WEBHOOK_URL: ${{ secrets.RAILWAY_ADMIN_WEBHOOK }}
