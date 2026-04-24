@@ -1,7 +1,7 @@
 import { cn } from '@admin/lib/utils';
 
 import {
-  Select,
+  Select as ShadcnSelect,
   SelectContent,
   SelectGroup,
   SelectItem,
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '../ui/select';
 
-export type LSelectProps = {
+export type SelectProps = {
   value?: string | null;
   onValueChange: (value: string) => void;
   options: { value: string; label: string; depth?: number }[];
@@ -30,7 +30,7 @@ export type LSelectProps = {
 const NO_VALUE = '__none__';
 const DEFAULT_PLACEHOLDER = '— Không giá trị —';
 
-export function LSelect({
+export function Select({
   value,
   onValueChange,
   options,
@@ -39,9 +39,9 @@ export function LSelect({
   placeholder = DEFAULT_PLACEHOLDER,
   showEmpty = true,
   className,
-}: LSelectProps) {
+}: SelectProps) {
   return (
-    <Select
+    <ShadcnSelect
       value={showEmpty ? value || NO_VALUE : value || undefined}
       onValueChange={(val) => onValueChange(val === NO_VALUE ? '' : val)}
     >
@@ -66,6 +66,6 @@ export function LSelect({
           ))}
         </SelectGroup>
       </SelectContent>
-    </Select>
+    </ShadcnSelect>
   );
 }

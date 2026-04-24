@@ -1,6 +1,6 @@
 'use client';
 
-import { CurrencyInput, LSelect } from '@admin/components/atoms';
+import { CurrencyInput, Select } from '@admin/components/atoms';
 import { Alert, AlertDescription } from '@admin/components/ui/alert';
 import { Button } from '@admin/components/ui/button';
 import {
@@ -264,7 +264,7 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
                 control={control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <LSelect
+                    <Select
                       value={field.value}
                       onValueChange={field.onChange}
                       options={STATUS_OPTIONS}
@@ -294,7 +294,7 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
                 control={control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <LSelect
+                    <Select
                       value={field.value}
                       onValueChange={field.onChange}
                       options={categoryOptions}

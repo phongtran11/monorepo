@@ -1,6 +1,6 @@
 'use client';
 
-import { LSelect } from '@admin/components/atoms';
+import { Select } from '@admin/components/atoms';
 import { Pagination } from '@admin/components/modules';
 import { Button } from '@admin/components/ui/button';
 import { Card, CardContent } from '@admin/components/ui/card';
@@ -124,7 +124,7 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
           />
         </div>
 
-        <LSelect
+        <Select
           value={currentStatus}
           onValueChange={(val) => updateParams({ status: val, page: '' })}
           options={STATUS_OPTIONS}
@@ -132,7 +132,7 @@ export function ProductTable({ data, categories, onEdit }: ProductTableProps) {
           className="w-44"
         />
 
-        <LSelect
+        <Select
           value={currentCategoryId}
           onValueChange={(val) => updateParams({ categoryId: val, page: '' })}
           options={categoryOptions}

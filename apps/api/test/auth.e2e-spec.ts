@@ -191,11 +191,12 @@ describe('AuthController (e2e)', () => {
     const body = response.body as ApiResponseDto<any>;
     expect(body.success).toBe(true);
 
-    // Assert database (session removed)
+    // Assert database (session revoked, not deleted)
     const session = await sessionRepository.findOne({
       where: { id: jti },
     });
-    expect(session).toBeNull();
+    expect(session).not.toBeNull();
+    expect(session?.revokedAt).not.toBeNull();
   });
 
   it('/auth/refresh (POST) - Fails after logout', async () => {

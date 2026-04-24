@@ -9,7 +9,11 @@ import {
   UpdateCategoryDto,
 } from '@api/modules/category/dto';
 import { CategoryService } from '@api/modules/category/services/category.service';
-import { CategoryResult } from '@api/modules/category/types';
+import {
+  CategoryResult,
+  CreateCategoryCommand,
+  UpdateCategoryCommand,
+} from '@api/modules/category/types';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -77,7 +81,13 @@ export class CategoryController {
     @Body() dto: CreateCategoryDto,
     @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResult>> {
-    const category = await this.categoryService.create(dto, user.id);
+    const command: CreateCategoryCommand = {
+      name: dto.name,
+      displayOrder: dto.displayOrder,
+      parentId: dto.parentId,
+      imageId: dto.imageId,
+    };
+    const category = await this.categoryService.create(command, user.id);
     return ApiResponseDto.success(category);
   }
 
@@ -100,7 +110,13 @@ export class CategoryController {
     @Body() dto: UpdateCategoryDto,
     @CurrentUser() user: AuthUser,
   ): Promise<ApiResponseDto<CategoryResult>> {
-    const category = await this.categoryService.update(id, dto, user.id);
+    const command: UpdateCategoryCommand = {
+      name: dto.name,
+      displayOrder: dto.displayOrder,
+      parentId: dto.parentId,
+      imageId: dto.imageId,
+    };
+    const category = await this.categoryService.update(id, command, user.id);
     return ApiResponseDto.success(category);
   }
 
@@ -124,7 +140,7 @@ export class CategoryController {
   async bulkRemove(
     @Body() dto: BulkDeleteCategoryDto,
   ): Promise<ApiResponseDto<null>> {
-    await this.categoryService.bulkRemove(dto);
+    await this.categoryService.bulkRemove({ ids: dto.ids });
     return ApiResponseDto.success(null);
   }
 

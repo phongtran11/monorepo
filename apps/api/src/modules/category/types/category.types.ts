@@ -21,3 +21,32 @@ export interface CategoryResult {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/**
+ * Command object for creating a new category.
+ * Free of HTTP/Swagger/validation decorators — pure domain input.
+ */
+export interface CreateCategoryCommand {
+  name: string;
+  displayOrder?: number;
+  parentId?: string | null;
+  imageId?: string | null;
+}
+
+/**
+ * Command object for updating an existing category.
+ * All fields are optional — only provided fields are applied.
+ */
+export interface UpdateCategoryCommand {
+  name?: string;
+  displayOrder?: number;
+  parentId?: string | null;
+  imageId?: string | null;
+}
+
+/**
+ * Command object for bulk-deleting categories.
+ */
+export interface BulkDeleteCategoryCommand {
+  ids: string[];
+}

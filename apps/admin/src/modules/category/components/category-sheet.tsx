@@ -1,6 +1,6 @@
 'use client';
 
-import { LSelect } from '@admin/components/atoms';
+import { Select } from '@admin/components/atoms';
 import { Alert, AlertDescription } from '@admin/components/ui/alert';
 import { Button } from '@admin/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
@@ -178,7 +178,7 @@ export function CategorySheet({
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
                 <FieldLabel htmlFor={field.name}>Danh mục cha</FieldLabel>
-                <LSelect
+                <Select
                   value={field.value}
                   onValueChange={(val) => field.onChange(val)}
                   options={parentOptions}

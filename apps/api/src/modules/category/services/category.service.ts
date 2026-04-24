@@ -1,15 +1,13 @@
 import { CloudinaryService } from '@api/lib/cloudinary/cloudinary.service';
-import {
-  BulkDeleteCategoryDto,
-  CreateCategoryDto,
-  UpdateCategoryDto,
-} from '@api/modules/category/dto';
 import { Category } from '@api/modules/category/entities/category.entity';
 import { CategoryPort } from '@api/modules/category/ports/category.port';
 import { CategoryRepository } from '@api/modules/category/repositories/category.repository';
 import {
+  BulkDeleteCategoryCommand,
   CategoryImageResult,
   CategoryResult,
+  CreateCategoryCommand,
+  UpdateCategoryCommand,
 } from '@api/modules/category/types';
 import { IMAGE_RESOURCE_TYPE } from '@api/modules/image/constants';
 import { ImageService } from '@api/modules/image/services/image.service';
@@ -75,10 +73,10 @@ export class CategoryService implements CategoryPort {
    * 3. On transaction failure, roll back the just-marked image by deleting the Cloudinary asset.
    */
   async create(
-    dto: CreateCategoryDto,
+    command: CreateCategoryCommand,
     userId: string,
   ): Promise<CategoryResult> {
-    const slug = slugify(dto.name);
+    const slug = slugify(command.name);
 
     const existingSlug = await this.categoryRepository.findBySlug(slug);
 
@@ -92,10 +90,10 @@ export class CategoryService implements CategoryPort {
     const resolvedId = existingSlug?.deletedAt ? existingSlug.id : randomUUID();
 
     let markedImage: ImageResult[] | null = null;
-    if (dto.imageId) {
+    if (command.imageId) {
       markedImage = await this.imageService.markPermanent(
-        [dto.imageId],
-        'category',
+        [command.imageId],
+        IMAGE_RESOURCE_TYPE.CATEGORY,
         resolvedId,
         userId,
       );
@@ -106,9 +104,9 @@ export class CategoryService implements CategoryPort {
         const categoryRepository = manager.getRepository(Category);
 
         let parent: Category | null = null;
-        if (dto.parentId) {
+        if (command.parentId) {
           parent = await categoryRepository.findOne({
-            where: { id: dto.parentId },
+            where: { id: command.parentId },
           });
 
           if (!parent) {
@@ -128,8 +126,9 @@ export class CategoryService implements CategoryPort {
             throw new NotFoundException('Danh mục không tồn tại');
           }
 
-          toRestore.name = dto.name;
-          toRestore.displayOrder = dto.displayOrder ?? toRestore.displayOrder;
+          toRestore.name = command.name;
+          toRestore.displayOrder =
+            command.displayOrder ?? toRestore.displayOrder;
           toRestore.parent = parent;
           toRestore.deletedAt = null;
 
@@ -139,9 +138,9 @@ export class CategoryService implements CategoryPort {
 
         const category = treeRepository.create({
           id: resolvedId,
-          name: dto.name,
+          name: command.name,
           slug,
-          displayOrder: dto.displayOrder,
+          displayOrder: command.displayOrder,
           parent,
         });
 
@@ -166,7 +165,7 @@ export class CategoryService implements CategoryPort {
    */
   async update(
     id: string,
-    dto: UpdateCategoryDto,
+    command: UpdateCategoryCommand,
     userId: string,
   ): Promise<CategoryResult> {
     await this.dataSource.transaction(async (manager) => {
@@ -181,8 +180,8 @@ export class CategoryService implements CategoryPort {
         throw new NotFoundException('Danh mục không tồn tại');
       }
 
-      if (dto.name && dto.name !== category.name) {
-        const slug = slugify(dto.name);
+      if (command.name && command.name !== category.name) {
+        const slug = slugify(command.name);
         const existing = await categoryRepo.findOne({
           where: { slug },
           withDeleted: true,
@@ -191,26 +190,26 @@ export class CategoryService implements CategoryPort {
         if (existing && existing.id !== id) {
           throw new ConflictException('Slug danh mục đã tồn tại');
         }
-        category.name = dto.name;
+        category.name = command.name;
         category.slug = slug;
       }
 
-      if (dto.displayOrder !== undefined) {
-        category.displayOrder = dto.displayOrder;
+      if (command.displayOrder !== undefined) {
+        category.displayOrder = command.displayOrder;
       }
 
-      if (dto.parentId !== undefined) {
-        if (dto.parentId === null) {
+      if (command.parentId !== undefined) {
+        if (command.parentId === null) {
           category.parent = null;
         } else {
-          if (dto.parentId === id) {
+          if (command.parentId === id) {
             throw new BadRequestException(
               'Danh mục không thể là cha của chính nó',
             );
           }
 
           const parent = await categoryRepo.findOne({
-            where: { id: dto.parentId },
+            where: { id: command.parentId },
           });
 
           if (!parent) {
@@ -220,7 +219,7 @@ export class CategoryService implements CategoryPort {
           const descendants =
             await this.categoryRepository.findDescendants(category);
 
-          if (descendants.some((d) => d.id === dto.parentId)) {
+          if (descendants.some((d) => d.id === command.parentId)) {
             throw new BadRequestException(
               'Danh mục cha không thể là con của danh mục hiện tại',
             );
@@ -233,10 +232,10 @@ export class CategoryService implements CategoryPort {
       await categoryRepo.save(category);
     });
 
-    if (dto.imageId !== undefined) {
-      if (dto.imageId) {
+    if (command.imageId !== undefined) {
+      if (command.imageId) {
         await this.imageService.markPermanent(
-          [dto.imageId],
+          [command.imageId],
           'category',
           id,
           userId,
@@ -261,8 +260,8 @@ export class CategoryService implements CategoryPort {
   /**
    * Removes multiple categories atomically using soft remove.
    */
-  async bulkRemove(dto: BulkDeleteCategoryDto): Promise<void> {
-    const { ids } = dto;
+  async bulkRemove(command: BulkDeleteCategoryCommand): Promise<void> {
+    const { ids } = command;
 
     const categories = await this.categoryRepository.findByIds(ids);
 
