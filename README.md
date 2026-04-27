@@ -21,7 +21,7 @@ A full-stack e-commerce platform built as a **pnpm monorepo**, consisting of a N
 - **Auth:** JWT (access + refresh tokens with rotation)
 - **Storage:** Cloudinary (images)
 - **Code Quality:** ESLint 9, Prettier 3, `eslint-plugin-simple-import-sort`
-- **Deployment:** Railway (API), Vercel (Admin)
+- **Deployment:** Railway (API + Admin, Docker)
 
 ## Prerequisites
 
@@ -40,11 +40,10 @@ cp apps/api/.env.example apps/api/.env
 cp apps/admin/.env.example apps/admin/.env
 # Edit both .env files — fill in database, JWT, Cloudinary, and Redis credentials
 
-# 3. Start local services (PostgreSQL + Redis)
-pnpm logs:up
-
-# 4. Start all apps in parallel
-pnpm dev:all
+# 3. Start services individually (in separate terminals)
+pnpm dev:shared    # Must run first — admin and api depend on it
+pnpm dev:api
+pnpm dev:admin
 ```
 
 Services will be available at:
@@ -54,23 +53,12 @@ Services will be available at:
 
 ## Development Commands
 
+
 ```bash
-# Start all services in foreground (shared package + api + admin in parallel)
-pnpm dev:all
-
-# Start all services in background, logs written to logs/
-pnpm dev:bg
-# Tail logs:
-tail -f logs/api.log
-tail -f logs/admin.log
-
-# Start services individually
-pnpm dev:shared    # Shared package in watch mode
+# Start services individually (each in its own terminal)
+pnpm dev:shared    # Shared package in watch mode — start this first
 pnpm dev:api       # API on port 8000
 pnpm dev:admin     # Admin on port 3000
-
-# Debug API with Node inspector
-pnpm debug:api
 
 # Build all packages
 pnpm build
@@ -82,10 +70,6 @@ pnpm build:admin
 
 # Lint + format all packages (prettier --write + eslint --fix)
 pnpm check
-
-# Docker Compose — start/stop PostgreSQL + Redis
-pnpm logs:up
-pnpm logs:down
 ```
 
 ## Project Structure
@@ -99,9 +83,6 @@ monorepo/
 ├── packages/
 │   ├── shared/           # Shared constants, types, helpers
 │   └── eslint-config/    # Shared ESLint config
-├── scripts/
-│   └── dev.sh            # Background dev runner
-└── logs/                 # Dev log files (git-ignored)
 ```
 
 ## Coding Standards
