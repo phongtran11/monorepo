@@ -23,7 +23,6 @@ export function initDb(dbPath: string): void {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-
   db = new Database(dbPath, {
     verbose: console.log,
   });

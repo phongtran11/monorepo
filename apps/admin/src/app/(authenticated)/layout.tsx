@@ -14,10 +14,13 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const result = await apis.get<UserProfile>(API_ENDPOINTS.AUTH.PROFILE);
-  const user = result.success && result.data ? result.data : null;
+
+  if (!result.success || !result.data) {
+    throw new Error('Failed to fetch user profile');
+  }
 
   return (
-    <UserProvider user={user}>
+    <UserProvider user={result.data}>
       <TooltipProvider>
         <SidebarProvider>
           <AppSidebar />

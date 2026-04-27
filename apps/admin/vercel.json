@@ -1,6 +1,0 @@
-{
-  "framework": "nextjs",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @lam-thinh-ecommerce/shared build && pnpm --filter @lam-thinh-ecommerce/admin build",
-  "outputDirectory": ".next"
-}
