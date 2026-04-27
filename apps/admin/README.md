@@ -163,7 +163,7 @@ The build process:
 3. **runner** — copies only the Next.js standalone output, static files, and `public/` into a minimal `node:22-alpine` image
 
 ```bash
-# Build the Docker image locally (run from repo root)
+# Must be run from the repo root — the Dockerfile references paths relative to it
 docker build -f apps/admin/Dockerfile -t lam-thinh-admin .
 ```
 

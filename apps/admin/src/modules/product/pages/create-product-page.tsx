@@ -182,6 +182,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
                     <FieldLabel htmlFor={field.name}>Mô tả ngắn</FieldLabel>
                     <textarea
                       {...field}
+                      value={field.value || ''}
                       id={field.name}
                       rows={3}
                       placeholder="Mô tả ngắn hiển thị trên thẻ sản phẩm..."
