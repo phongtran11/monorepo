@@ -2,7 +2,6 @@
 
 import { cn } from '@admin/lib/utils';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
@@ -86,7 +85,6 @@ export function RichTextEditor({
         strike: false,
         horizontalRule: false,
       }),
-      Underline,
       Placeholder.configure({ placeholder }),
     ],
     content: value,
