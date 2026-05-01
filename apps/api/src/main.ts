@@ -17,10 +17,13 @@ import { bootstrapApp } from './lib/common';
  * @returns {Promise<void>}
  */
 async function bootstrap() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     new ExpressAdapter(),
-    { bufferLogs: true },
+    // bufferLogs delays early logs until the custom logger (pino) is ready
+    { bufferLogs: isProduction },
   );
 
   bootstrapApp(app);

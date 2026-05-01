@@ -1,28 +1,17 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { LoggerModule } from 'nestjs-pino';
+import { ConfigModule } from '@nestjs/config';
 
 import {
-  APP_CONFIG_TOKEN,
-  AppConfig,
   appConfig,
   cloudinaryConfig,
-  DATABASE_CONFIG_TOKEN,
-  DatabaseConfig,
   databaseConfig,
-  JWT_CONFIG_TOKEN,
-  JwtConfig,
   jwtConfig,
-  LOGGER_CONFIG_TOKEN,
-  LoggerConfig,
   loggerConfig,
   redisConfig,
   validate,
 } from './config';
+import { DatabaseModule, JwtConfigModule, PinoLoggerModule } from './lib';
 import { CloudinaryModule } from './lib/cloudinary/cloudinary.module';
-import { DBLogger } from './lib/common';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoryModule } from './modules/category/category.module';
 import { ImageModule } from './modules/image/image.module';
@@ -35,7 +24,6 @@ import { UploadModule } from './modules/upload/upload.module';
  */
 @Module({
   imports: [
-    // Global config from .env with Zod validation
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -49,52 +37,10 @@ import { UploadModule } from './modules/upload/upload.module';
       ],
       validate,
     }),
-
-    // Pino Logger
-    LoggerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) =>
-        configService.getOrThrow<LoggerConfig>(LOGGER_CONFIG_TOKEN),
-    }),
-
-    // TypeORM with Neon PostgreSQL
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const dbConfig = configService.getOrThrow<DatabaseConfig>(
-          DATABASE_CONFIG_TOKEN,
-        );
-        const appConfig = configService.getOrThrow<AppConfig>(APP_CONFIG_TOKEN);
-        return {
-          type: 'postgres',
-          url: dbConfig.url,
-          autoLoadEntities: true,
-          synchronize: appConfig.nodeEnv !== 'production',
-          logger: new DBLogger(),
-          ssl: true,
-          extra: {
-            ssl: {
-              rejectUnauthorized: false,
-            },
-            max: 20,
-            idleTimeoutMillis: 30000,
-          },
-        };
-      },
-    }),
-
-    // JWT (global) — uses access token secret
-    JwtModule.registerAsync({
-      global: true,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const jwtConfig = configService.getOrThrow<JwtConfig>(JWT_CONFIG_TOKEN);
-        return {
-          secret: jwtConfig.accessSecret,
-        };
-      },
-    }),
-
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    PinoLoggerModule.register(),
+    DatabaseModule,
+    JwtConfigModule,
     AuthModule,
     CategoryModule,
     CloudinaryModule,

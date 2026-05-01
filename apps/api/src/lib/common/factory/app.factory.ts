@@ -1,9 +1,11 @@
+import { APP_CONFIG_TOKEN, AppConfig } from '@api/config';
 import { HttpExceptionFilter } from '@api/lib/common/filter';
 import {
   INestApplication,
   ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import compression from 'compression';
 import { Logger } from 'nestjs-pino';
 
@@ -40,6 +42,11 @@ export function bootstrapApp(app: INestApplication) {
   // Compression
   app.use(compression());
 
-  // Logger
-  app.useLogger(app.get(Logger));
+  // Use pino logger in production; NestJS built-in logger in development
+  const { nodeEnv } = app
+    .get(ConfigService)
+    .getOrThrow<AppConfig>(APP_CONFIG_TOKEN);
+  if (nodeEnv === 'production') {
+    app.useLogger(app.get(Logger));
+  }
 }
