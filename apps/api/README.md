@@ -115,12 +115,12 @@ src/
 
 ### Layer Responsibilities
 
-| Layer | Responsibility | Returns |
-|---|---|---|
-| Controller | Routing, HTTP concerns, Swagger decorators | `ApiResponseDto<T>` |
-| Service | Business logic, entity → interface mapping | Plain domain interfaces |
-| Repository | Database interaction | Entities |
-| Entity | DB schema only | — |
+| Layer      | Responsibility                             | Returns                 |
+| ---------- | ------------------------------------------ | ----------------------- |
+| Controller | Routing, HTTP concerns, Swagger decorators | `ApiResponseDto<T>`     |
+| Service    | Business logic, entity → interface mapping | Plain domain interfaces |
+| Repository | Database interaction                       | Entities                |
+| Entity     | DB schema only                             | —                       |
 
 ### Response Envelope
 
@@ -171,25 +171,25 @@ All list endpoints accept `?page=1&limit=20`. The `limit` is capped at 100. Resp
 
 ## API Conventions
 
-| Convention | Value |
-|---|---|
-| Global prefix | `/api/v1` |
-| Swagger UI | `/api/docs` |
-| Error message language | Vietnamese |
-| Pagination params | `?page=&limit=` (max 100) |
-| Text search | `ILIKE` |
-| Bulk operations | Dedicated DTOs with UUID arrays |
+| Convention             | Value                           |
+| ---------------------- | ------------------------------- |
+| Global prefix          | `/api/v1`                       |
+| Swagger UI             | `/api/docs`                     |
+| Error message language | Vietnamese                      |
+| Pagination params      | `?page=&limit=` (max 100)       |
+| Text search            | `ILIKE`                         |
+| Bulk operations        | Dedicated DTOs with UUID arrays |
 
 ## Key Reference Files
 
-| Purpose | Path |
-|---|---|
-| API response envelope | `src/lib/common/dto/api-response.dto.ts` |
-| App bootstrap | `src/lib/common/factory/app.factory.ts` |
-| Environment validation | `src/config/env.validation.ts` |
-| Auth guards | `src/modules/auth/guard/` |
-| Custom decorators | `src/lib/common/decorator/` |
-| Swagger helpers | `src/lib/common/swagger/api-response.mixin.ts` |
+| Purpose                | Path                                           |
+| ---------------------- | ---------------------------------------------- |
+| API response envelope  | `src/lib/common/dto/api-response.dto.ts`       |
+| App bootstrap          | `src/lib/common/factory/app.factory.ts`        |
+| Environment validation | `src/config/env.validation.ts`                 |
+| Auth guards            | `src/modules/auth/guard/`                      |
+| Custom decorators      | `src/lib/common/decorator/`                    |
+| Swagger helpers        | `src/lib/common/swagger/api-response.mixin.ts` |
 
 ## Deployment
 

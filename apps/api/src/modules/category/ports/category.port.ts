@@ -3,7 +3,7 @@ import {
   CategoryResult,
   CreateCategoryCommand,
   UpdateCategoryCommand,
-} from '@api/modules/category/types';
+} from '../types';
 
 /**
  * Port interface for cross-module access to category domain operations.

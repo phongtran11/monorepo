@@ -1,16 +1,6 @@
 import { CloudinaryService } from '@api/lib/cloudinary/cloudinary.service';
-import { Category } from '@api/modules/category/entities/category.entity';
-import { CategoryPort } from '@api/modules/category/ports/category.port';
-import { CategoryRepository } from '@api/modules/category/repositories/category.repository';
-import {
-  BulkDeleteCategoryCommand,
-  CategoryImageResult,
-  CategoryResult,
-  CreateCategoryCommand,
-  UpdateCategoryCommand,
-} from '@api/modules/category/types';
 import { IMAGE_RESOURCE_TYPE } from '@api/modules/image/constants';
-import { ImageService } from '@api/modules/image/services/image.service';
+import { ImageService } from '@api/modules/image/services';
 import { ImageResult } from '@api/modules/image/types';
 import { ProductPort } from '@api/modules/product/ports/product.port';
 import { slugify } from '@lam-thinh-ecommerce/shared';
@@ -23,6 +13,17 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
+
+import { Category } from '../entities/category.entity';
+import { CategoryPort } from '../ports/category.port';
+import { CategoryRepository } from '../repositories/category.repository';
+import {
+  BulkDeleteCategoryCommand,
+  CategoryImageResult,
+  CategoryResult,
+  CreateCategoryCommand,
+  UpdateCategoryCommand,
+} from '../types';
 
 /**
  * Service for managing categories.
@@ -236,12 +237,15 @@ export class CategoryService implements CategoryPort {
       if (command.imageId) {
         await this.imageService.markPermanent(
           [command.imageId],
-          'category',
+          IMAGE_RESOURCE_TYPE.CATEGORY,
           id,
           userId,
         );
       } else {
-        await this.imageService.deleteForResource('category', id);
+        await this.imageService.deleteForResource(
+          IMAGE_RESOURCE_TYPE.CATEGORY,
+          id,
+        );
       }
     }
 

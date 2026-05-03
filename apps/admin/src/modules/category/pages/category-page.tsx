@@ -4,8 +4,8 @@ import { usePermission } from '@admin/modules/auth/context/user.context';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import { useMemo, useState } from 'react';
 
+import { CategoryDialog } from '../components/category-dialog';
 import { CategoryHeader } from '../components/category-header';
-import { CategorySheet } from '../components/category-sheet';
 import { CategoryTable } from '../components/category-table';
 import {
   Category,
@@ -17,7 +17,7 @@ interface CategoryPageProps {
   categories: Category[];
 }
 
-type SheetState =
+type DialogState =
   | { open: false }
   | { open: true; editCategory: FlatCategory | null };
 
@@ -28,11 +28,11 @@ export function CategoryPage({ categories }: CategoryPageProps) {
     () => flattenCategories(categories),
     [categories],
   );
-  const [sheet, setSheet] = useState<SheetState>({ open: false });
+  const [dialog, setDialog] = useState<DialogState>({ open: false });
 
-  const openCreate = () => setSheet({ open: true, editCategory: null });
+  const openCreate = () => setDialog({ open: true, editCategory: null });
   const openEdit = (cat: FlatCategory) =>
-    setSheet({ open: true, editCategory: cat });
+    setDialog({ open: true, editCategory: cat });
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,10 +48,10 @@ export function CategoryPage({ categories }: CategoryPageProps) {
         onAddFirst={openCreate}
       />
 
-      <CategorySheet
-        open={sheet.open}
-        onOpenChange={(open) => !open && setSheet({ open: false })}
-        editCategory={sheet.open ? sheet.editCategory : null}
+      <CategoryDialog
+        open={dialog.open}
+        onOpenChange={(open) => !open && setDialog({ open: false })}
+        editCategory={dialog.open ? dialog.editCategory : null}
         allCategories={flatCategories}
       />
     </div>

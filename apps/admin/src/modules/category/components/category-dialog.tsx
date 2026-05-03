@@ -3,15 +3,16 @@
 import { Select } from '@admin/components/atoms';
 import { Alert, AlertDescription } from '@admin/components/ui/alert';
 import { Button } from '@admin/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@admin/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@admin/components/ui/sheet';
 import { ImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -22,19 +23,19 @@ import { createCategoryAction, updateCategoryAction } from '../actions';
 import { CategorySchema, categorySchema } from '../schemas/category.schema';
 import { FlatCategory } from '../types/category.type';
 
-interface CategorySheetProps {
+interface CategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editCategory?: FlatCategory | null;
   allCategories: FlatCategory[];
 }
 
-export function CategorySheet({
+export function CategoryDialog({
   open,
   onOpenChange,
   editCategory,
   allCategories,
-}: CategorySheetProps) {
+}: CategoryDialogProps) {
   const isEdit = !!editCategory;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -104,18 +105,21 @@ export function CategorySheet({
     }));
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="flex flex-col">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
             {isEdit ? 'Chỉnh sửa danh mục' : 'Thêm danh mục'}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? 'Cập nhật thông tin danh mục.' : 'Tạo danh mục mới.'}
+          </DialogDescription>
+        </DialogHeader>
 
         <form
           // @ts-expect-error zodResolver generic mismatch with current zod version
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
         >
           <Controller
             name="imageId"
@@ -198,7 +202,7 @@ export function CategorySheet({
             </Alert>
           )}
 
-          <SheetFooter className="px-0">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
@@ -213,9 +217,9 @@ export function CategorySheet({
               )}
               {isEdit ? 'Lưu thay đổi' : 'Thêm danh mục'}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

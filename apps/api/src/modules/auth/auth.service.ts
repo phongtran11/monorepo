@@ -1,7 +1,6 @@
 import { Env } from '@api/config';
-import { TokenDto } from '@api/modules/auth/dto/token.dto';
-import { UserPort } from '@api/modules/user/ports/user.port';
 import { User } from '@api/modules/user/user.entity';
+import { UserPort } from '@api/modules/user/user.port';
 import { AccountStatus } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
@@ -18,6 +17,7 @@ import { DataSource, EntityManager, IsNull } from 'typeorm';
 
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { TokenDto } from './dto/token.dto';
 import {
   decryptReplayPayload,
   encryptReplayPayload,

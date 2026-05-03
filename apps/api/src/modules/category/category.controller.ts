@@ -2,18 +2,6 @@ import { ApiResponseDto, ApiResponseOf, Permissions } from '@api/lib/common';
 import { CurrentUser } from '@api/lib/common/decorator';
 import { JwtAuthGuard, PermissionsGuard } from '@api/modules/auth/guard';
 import type { AuthUser } from '@api/modules/auth/jwt.type';
-import {
-  BulkDeleteCategoryDto,
-  CategoryResponseDto,
-  CreateCategoryDto,
-  UpdateCategoryDto,
-} from '@api/modules/category/dto';
-import { CategoryService } from '@api/modules/category/services/category.service';
-import {
-  CategoryResult,
-  CreateCategoryCommand,
-  UpdateCategoryCommand,
-} from '@api/modules/category/types';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -34,6 +22,19 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+
+import {
+  BulkDeleteCategoryDto,
+  CategoryResponseDto,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from './dto';
+import { CategoryService } from './services/category.service';
+import {
+  CategoryResult,
+  CreateCategoryCommand,
+  UpdateCategoryCommand,
+} from './types';
 
 /**
  * Controller for managing categories.

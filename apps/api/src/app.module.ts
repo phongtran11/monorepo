@@ -37,7 +37,6 @@ import { UploadModule } from './modules/upload/upload.module';
       ],
       validate,
     }),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     PinoLoggerModule.register(),
     DatabaseModule,
     JwtConfigModule,

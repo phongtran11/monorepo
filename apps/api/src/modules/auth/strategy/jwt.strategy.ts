@@ -1,9 +1,10 @@
 import { JWT_CONFIG_TOKEN, JwtConfig } from '@api/config';
-import { AuthUser, JwtPayload } from '@api/modules/auth/jwt.type';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+
+import { AuthUser, JwtPayload } from '../jwt.type';
 
 /**
  * Strategy for validating JWT access tokens.

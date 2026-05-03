@@ -2,19 +2,6 @@ import { ApiResponseDto, ApiResponseOf, Permissions } from '@api/lib/common';
 import { CurrentUser } from '@api/lib/common/decorator';
 import { JwtAuthGuard, PermissionsGuard } from '@api/modules/auth/guard';
 import type { AuthUser } from '@api/modules/auth/jwt.type';
-import {
-  BulkDeleteProductDto,
-  CreateProductDto,
-  PaginatedProductResponseDto,
-  ProductQueryDto,
-  ProductResponseDto,
-  UpdateProductDto,
-} from '@api/modules/product/dto';
-import { ProductService } from '@api/modules/product/services/product.service';
-import {
-  PaginatedProductsResult,
-  ProductResult,
-} from '@api/modules/product/types';
 import { Permission } from '@lam-thinh-ecommerce/shared';
 import {
   Body,
@@ -37,6 +24,17 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+
+import {
+  BulkDeleteProductDto,
+  CreateProductDto,
+  PaginatedProductResponseDto,
+  ProductQueryDto,
+  ProductResponseDto,
+  UpdateProductDto,
+} from './dto';
+import { ProductService } from './services/product.service';
+import { PaginatedProductsResult, ProductResult } from './types';
 
 /**
  * Controller for managing products.

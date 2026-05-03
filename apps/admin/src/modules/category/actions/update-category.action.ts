@@ -9,6 +9,7 @@ import { CategorySchema } from '../schemas/category.schema';
 import { Category } from '../types/category.type';
 
 export async function updateCategoryAction(id: string, data: CategorySchema) {
+  console.log(data);
   return withRevalidate('/categories', () =>
     apis.patch<Category, CategorySchema>(
       `${API_ENDPOINTS.CATEGORIES.BASE}/${id}`,

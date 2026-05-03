@@ -1,4 +1,3 @@
-import { ApiResponseDto } from '@api/lib/common/dto';
 import {
   ArgumentsHost,
   Catch,
@@ -6,6 +5,8 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { Response } from 'express';
+
+import { ApiResponseDto } from '../dto';
 
 /**
  * Global exception filter for handling HTTP exceptions.

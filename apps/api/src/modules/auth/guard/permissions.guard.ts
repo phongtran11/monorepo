@@ -1,5 +1,4 @@
 import { PERMISSIONS_KEY } from '@api/lib/common';
-import { AuthRequest } from '@api/modules/auth/jwt.type';
 import { Permission, RolePermissionsMap } from '@lam-thinh-ecommerce/shared';
 import {
   CanActivate,
@@ -8,6 +7,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
+import { AuthRequest } from '../jwt.type';
 
 /**
  * Guard that checks if the authenticated user has the required permissions.

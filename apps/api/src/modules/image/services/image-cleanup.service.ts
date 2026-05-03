@@ -1,6 +1,7 @@
-import { ImageService } from '@api/modules/image/services/image.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+
+import { ImageService } from './image.service';
 
 /**
  * Service that runs a periodic cron job to clean up orphaned pending images.

@@ -1,5 +1,6 @@
-import { CreateProductDto } from '@api/modules/product/dto/create-product.dto';
 import { PartialType } from '@nestjs/swagger';
+
+import { CreateProductDto } from './create-product.dto';
 
 /**
  * Data transfer object for updating an existing product.

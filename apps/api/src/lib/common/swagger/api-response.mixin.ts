@@ -1,5 +1,6 @@
-import { ApiResponseDto } from '@api/lib/common/dto';
 import { ApiProperty, ApiPropertyOptions } from '@nestjs/swagger';
+
+import { ApiResponseDto } from '../dto';
 
 /**
  * Mixin that creates a dynamic Swagger-compatible response class by wrapping a data type in ApiResponseDto.

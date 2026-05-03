@@ -1,4 +1,4 @@
-import { User } from '@api/modules/user/user.entity';
+import { User } from './user.entity';
 
 /**
  * Port interface for cross-module access to user domain operations.

@@ -17,10 +17,9 @@ export default async function ProductsRoute({
   const params = await searchParams;
 
   const query = new URLSearchParams();
-  if (params.page) query.set('page', params.page);
-  if (params.search) query.set('search', params.search);
-  if (params.status) query.set('status', params.status);
-  if (params.categoryId) query.set('categoryId', params.categoryId);
+  for (const [key, value] of Object.entries(params)) {
+    if (value) query.set(key, value);
+  }
 
   const endpoint = query.toString()
     ? `${API_ENDPOINTS.PRODUCTS.BASE}?${query.toString()}`

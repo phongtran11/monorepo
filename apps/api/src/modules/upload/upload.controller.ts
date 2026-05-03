@@ -8,10 +8,6 @@ import type { AuthUser } from '@api/modules/auth/jwt.type';
 import { ImageResponseDto } from '@api/modules/image/dto';
 import { ImageService } from '@api/modules/image/services/image.service';
 import { ImageResult } from '@api/modules/image/types';
-import {
-  RegisterUploadDto,
-  UploadSignatureResponseDto,
-} from '@api/modules/upload/dto';
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -20,6 +16,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+
+import { RegisterUploadDto, UploadSignatureResponseDto } from './dto';
 
 /**
  * Controller handling image upload operations.

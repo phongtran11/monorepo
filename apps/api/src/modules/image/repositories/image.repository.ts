@@ -1,7 +1,8 @@
-import { IMAGE_STATUS, ImageResourceType } from '@api/modules/image/constants';
-import { Image } from '@api/modules/image/entities';
 import { Injectable } from '@nestjs/common';
 import { DataSource, In, LessThan, Repository } from 'typeorm';
+
+import { IMAGE_STATUS, ImageResourceType } from '../constants';
+import { Image } from '../entities';
 
 /**
  * Repository for image record database operations.

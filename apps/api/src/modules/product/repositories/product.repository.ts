@@ -1,7 +1,8 @@
-import { Product } from '@api/modules/product/entities/product.entity';
-import { ProductFilter } from '@api/modules/product/types';
 import { Injectable } from '@nestjs/common';
 import { DataSource, In, Repository } from 'typeorm';
+
+import { Product } from '../entities/product.entity';
+import { ProductFilter } from '../types';
 
 /**
  * Repository for product database operations.

@@ -1,9 +1,4 @@
 import {
-  IMAGE_STATUS,
-  ImageResourceType,
-  type ImageStatus,
-} from '@api/modules/image/constants';
-import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -12,6 +7,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
+import {
+  IMAGE_STATUS,
+  ImageResourceType,
+  type ImageStatus,
+} from '../constants';
 
 /**
  * Shared entity that tracks every Cloudinary image across all resource types.

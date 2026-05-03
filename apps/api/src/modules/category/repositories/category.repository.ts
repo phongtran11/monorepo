@@ -1,6 +1,7 @@
-import { Category } from '@api/modules/category/entities/category.entity';
 import { Injectable } from '@nestjs/common';
 import { DataSource, TreeRepository } from 'typeorm';
+
+import { Category } from '../entities/category.entity';
 
 /**
  * Repository for category database operations, specializing in tree structures.

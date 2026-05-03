@@ -1,13 +1,11 @@
 import { JWT_CONFIG_TOKEN, JwtConfig } from '@api/config';
-import {
-  RefreshAuthUser,
-  RefreshTokenPayload,
-} from '@api/modules/auth/jwt.type';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+
+import { RefreshAuthUser, RefreshTokenPayload } from '../jwt.type';
 
 /**
  * Strategy for validating JWT refresh tokens.

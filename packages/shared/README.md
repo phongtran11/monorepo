@@ -7,7 +7,13 @@ Shared TypeScript constants, types, and helper functions used across the `api` a
 This package is consumed internally via the pnpm workspace — no separate install needed.
 
 ```typescript
-import { Role, AccountStatus, Permission, formatVND, slugify } from '@lam-thinh-ecommerce/shared';
+import {
+  Role,
+  AccountStatus,
+  Permission,
+  formatVND,
+  slugify,
+} from '@lam-thinh-ecommerce/shared';
 ```
 
 ## Scripts
@@ -42,9 +48,9 @@ const ROLE_LABELS = {
 
 ```typescript
 const AccountStatus = {
-  INACTIVE: 1,   // Pending email verification
+  INACTIVE: 1, // Pending email verification
   ACTIVE: 2,
-  BANNED: 3,     // Blocked by admin
+  BANNED: 3, // Blocked by admin
 } as const;
 ```
 
@@ -64,11 +70,11 @@ MANAGE_SYSTEM
 
 Maps each `Role` to its permitted `Permission[]`:
 
-| Role | Permissions |
-|---|---|
-| `ADMIN` | All permissions |
-| `STAFF` | All except user management + `MANAGE_SYSTEM` |
-| `CUSTOMER` | `READ_CATEGORIES`, `READ_PRODUCTS` |
+| Role       | Permissions                                  |
+| ---------- | -------------------------------------------- |
+| `ADMIN`    | All permissions                              |
+| `STAFF`    | All except user management + `MANAGE_SYSTEM` |
+| `CUSTOMER` | `READ_CATEGORIES`, `READ_PRODUCTS`           |
 
 #### `ProductStatus`
 
@@ -129,8 +135,8 @@ formatYearMonth(new Date(...)); // '2025-12'
 Converts a string to a URL-safe slug. Handles Vietnamese diacritics.
 
 ```typescript
-slugify('Áo thun nam');  // 'ao-thun-nam'
-slugify('Hello World');  // 'hello-world'
+slugify('Áo thun nam'); // 'ao-thun-nam'
+slugify('Hello World'); // 'hello-world'
 ```
 
 #### `formatCurrency(amount, currency?, locale?): string`
@@ -138,8 +144,8 @@ slugify('Hello World');  // 'hello-world'
 Locale-aware currency formatter. Defaults to VND / `vi-VN`.
 
 ```typescript
-formatCurrency(150000);                     // '150.000 ₫'
-formatCurrency(19.99, 'USD', 'en-US');      // '$19.99'
+formatCurrency(150000); // '150.000 ₫'
+formatCurrency(19.99, 'USD', 'en-US'); // '$19.99'
 ```
 
 #### `formatVND(amount: number): string`
@@ -147,23 +153,23 @@ formatCurrency(19.99, 'USD', 'en-US');      // '$19.99'
 Shorthand for `formatCurrency(amount, 'VND', 'vi-VN')`.
 
 ```typescript
-formatVND(250000);  // '250.000 ₫'
+formatVND(250000); // '250.000 ₫'
 ```
 
 #### `toNullableField<T>(value: T | null | undefined): T | null | undefined`
 
 Three-state normalization for PATCH payloads:
 
-| Input | Output | Meaning |
-|---|---|---|
-| `undefined` | `undefined` | Field absent — skip in PATCH |
-| `null` | `null` | Field cleared — set to `null` in DB |
-| `T` | `T` | New value — update the field |
+| Input       | Output      | Meaning                             |
+| ----------- | ----------- | ----------------------------------- |
+| `undefined` | `undefined` | Field absent — skip in PATCH        |
+| `null`      | `null`      | Field cleared — set to `null` in DB |
+| `T`         | `T`         | New value — update the field        |
 
 ```typescript
-toNullableField(undefined);  // undefined — omit from PATCH body
-toNullableField(null);       // null — clear the field
-toNullableField('text');     // 'text' — update the field
+toNullableField(undefined); // undefined — omit from PATCH body
+toNullableField(null); // null — clear the field
+toNullableField('text'); // 'text' — update the field
 ```
 
 ## Build

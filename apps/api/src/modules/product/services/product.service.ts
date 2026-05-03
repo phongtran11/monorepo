@@ -1,20 +1,6 @@
 import { IMAGE_RESOURCE_TYPE } from '@api/modules/image/constants';
 import { ImageService } from '@api/modules/image/services/image.service';
 import { ImageResult } from '@api/modules/image/types';
-import {
-  BulkDeleteProductDto,
-  CreateProductDto,
-  ProductQueryDto,
-  UpdateProductDto,
-} from '@api/modules/product/dto';
-import { Product } from '@api/modules/product/entities/product.entity';
-import { ProductPort } from '@api/modules/product/ports/product.port';
-import { ProductRepository } from '@api/modules/product/repositories/product.repository';
-import {
-  PaginatedProductsResult,
-  ProductImageResult,
-  ProductResult,
-} from '@api/modules/product/types';
 import { slugify } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
@@ -23,6 +9,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, QueryFailedError } from 'typeorm';
+
+import {
+  BulkDeleteProductDto,
+  CreateProductDto,
+  ProductQueryDto,
+  UpdateProductDto,
+} from '../dto';
+import { Product } from '../entities/product.entity';
+import { ProductPort } from '../ports/product.port';
+import { ProductRepository } from '../repositories/product.repository';
+import {
+  PaginatedProductsResult,
+  ProductImageResult,
+  ProductResult,
+} from '../types';
 
 /**
  * Service for managing products.

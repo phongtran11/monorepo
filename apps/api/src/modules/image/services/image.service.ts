@@ -1,9 +1,10 @@
 import { CloudinaryService } from '@api/lib/cloudinary/cloudinary.service';
-import { IMAGE_STATUS, ImageResourceType } from '@api/modules/image/constants';
-import { Image } from '@api/modules/image/entities';
-import { ImageRepository } from '@api/modules/image/repositories';
-import { ImageResult } from '@api/modules/image/types';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
+import { IMAGE_STATUS, ImageResourceType } from '../constants';
+import { Image } from '../entities';
+import { ImageRepository } from '../repositories';
+import { ImageResult } from '../types';
 
 /**
  * Service for managing the shared images table.

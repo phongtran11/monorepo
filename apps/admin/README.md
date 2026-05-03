@@ -134,13 +134,13 @@ Image uploads go through four server actions:
 
 ### Module File Conventions
 
-| File type | Location |
-|---|---|
-| Server actions | `<feature>/actions/` with `'use server'` |
+| File type         | Location                                    |
+| ----------------- | ------------------------------------------- |
+| Server actions    | `<feature>/actions/` with `'use server'`    |
 | Client components | `<feature>/components/` with `'use client'` |
-| Zod schemas | `<feature>/schemas/` |
-| TypeScript types | `<feature>/types/` |
-| Barrel export | `<feature>/index.ts` |
+| Zod schemas       | `<feature>/schemas/`                        |
+| TypeScript types  | `<feature>/types/`                          |
+| Barrel export     | `<feature>/index.ts`                        |
 
 ### Category Tree
 
@@ -158,6 +158,7 @@ The API returns categories as a nested tree. The admin module flattens this to a
 Deployed to **Railway** as a Docker image using the multi-stage `Dockerfile` in this directory.
 
 The build process:
+
 1. **deps** — installs workspace dependencies with pnpm
 2. **builder** — builds `packages/shared` then `apps/admin` with `NEXT_TELEMETRY_DISABLED=1`
 3. **runner** — copies only the Next.js standalone output, static files, and `public/` into a minimal `node:22-alpine` image

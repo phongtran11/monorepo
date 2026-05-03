@@ -1,5 +1,4 @@
 import { APP_CONFIG_TOKEN, AppConfig } from '@api/config';
-import { HttpExceptionFilter } from '@api/lib/common/filter';
 import {
   INestApplication,
   ValidationPipe,
@@ -8,6 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import compression from 'compression';
 import { Logger } from 'nestjs-pino';
+
+import { HttpExceptionFilter } from '../filter';
 
 /**
  * Configures a NestJS application with standard global middleware, pipes, filters, and settings.
