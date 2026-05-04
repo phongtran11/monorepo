@@ -20,9 +20,17 @@ export const API_ENDPOINTS = {
   },
   CATEGORIES: {
     BASE: '/categories',
+    CREATE: '/categories',
+    DETAIL: '/categories/:id',
+    UPDATE: '/categories/:id',
+    DELETE: '/categories/:id',
   },
   PRODUCTS: {
     BASE: '/products',
+    CREATE: '/products',
+    DETAIL: '/products/:id',
+    UPDATE: '/products/:id',
+    DELETE: '/products/:id',
   },
   UPLOAD: {
     SIGN: '/upload/sign',

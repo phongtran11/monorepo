@@ -1,5 +1,5 @@
 import { ROLES_KEY } from '@api/lib/common';
-import { Role } from '@lam-thinh-ecommerce/shared';
+import { ERROR_CODES, Role } from '@lam-thinh-ecommerce/shared';
 import {
   CanActivate,
   ExecutionContext,
@@ -44,9 +44,7 @@ export class RolesGuard implements CanActivate {
     // Checking if the user has one of the required roles
     const hasRole = requiredRoles.includes(user.role);
     if (!hasRole) {
-      throw new ForbiddenException(
-        'Bạn không có quyền truy cập tài nguyên này.',
-      );
+      throw new ForbiddenException(ERROR_CODES.FORBIDDEN);
     }
 
     return true;

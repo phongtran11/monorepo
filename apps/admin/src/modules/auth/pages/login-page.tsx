@@ -12,6 +12,7 @@ import {
 } from '@admin/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
+import { handleApiFormError } from '@admin/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
@@ -24,7 +25,7 @@ import { LoginSchema, loginSchema } from '../schemas/login.schema';
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { control, handleSubmit, formState } = useForm<LoginSchema>({
+  const { control, handleSubmit, formState, setError } = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
@@ -37,7 +38,7 @@ export function LoginPage() {
       const result = await loginAction(data);
 
       if (!result.success) {
-        setErrorMessage(result.message);
+        handleApiFormError(result, setError, setErrorMessage);
       }
     } catch (e) {
       if (isRedirectError(e)) return;

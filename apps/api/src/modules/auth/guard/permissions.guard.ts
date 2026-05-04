@@ -1,5 +1,9 @@
 import { PERMISSIONS_KEY } from '@api/lib/common';
-import { Permission, RolePermissionsMap } from '@lam-thinh-ecommerce/shared';
+import {
+  ERROR_CODES,
+  Permission,
+  RolePermissionsMap,
+} from '@lam-thinh-ecommerce/shared';
 import {
   CanActivate,
   ExecutionContext,
@@ -48,9 +52,7 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException(
-        'Bạn không có quyền thực hiện hành động này.',
-      );
+      throw new ForbiddenException(ERROR_CODES.FORBIDDEN);
     }
 
     return true;

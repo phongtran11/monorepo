@@ -7,10 +7,21 @@ export type TokenPair = {
 };
 
 /** Standard API response shape returned by the backend. */
-export type ApiResponse<T = unknown> = {
-  success: boolean;
+export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+export type ApiSuccessResponse<T = unknown> = {
+  success: true;
   statusCode: number;
   message: string;
   data: T;
-  error: string | null;
+};
+
+export type ApiErrorResponse = {
+  success: false;
+  statusCode: number;
+  code: string;
+  message: string;
+  errors?: { field: string; message: string }[];
+  path?: string;
+  timestamp?: string;
 };

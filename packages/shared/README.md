@@ -156,22 +156,6 @@ Shorthand for `formatCurrency(amount, 'VND', 'vi-VN')`.
 formatVND(250000); // '250.000 ₫'
 ```
 
-#### `toNullableField<T>(value: T | null | undefined): T | null | undefined`
-
-Three-state normalization for PATCH payloads:
-
-| Input       | Output      | Meaning                             |
-| ----------- | ----------- | ----------------------------------- |
-| `undefined` | `undefined` | Field absent — skip in PATCH        |
-| `null`      | `null`      | Field cleared — set to `null` in DB |
-| `T`         | `T`         | New value — update the field        |
-
-```typescript
-toNullableField(undefined); // undefined — omit from PATCH body
-toNullableField(null); // null — clear the field
-toNullableField('text'); // 'text' — update the field
-```
-
 ## Build
 
 Uses **rolldown** (ES module output) and **dts-bundle-generator** for the `.d.ts` bundle. Output goes to `dist/`.

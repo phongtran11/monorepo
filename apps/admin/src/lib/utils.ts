@@ -15,13 +15,35 @@ export function buildUrl(apiUrl: string, path: string): URL {
 export function makeErrorResponse<T>(
   statusCode: number,
   message: string,
-  error: string,
+  code: string,
 ): ApiResponse<T> {
   return {
     success: false,
     statusCode,
     message,
-    data: null as T,
-    error,
+    code,
   };
+}
+
+import { ApiErrorResponse, ERROR_CODES } from '@lam-thinh-ecommerce/shared';
+import { FieldValues, Path, UseFormSetError } from 'react-hook-form';
+
+export function handleApiFormError<TFieldValues extends FieldValues>(
+  errorResponse: ApiErrorResponse,
+  setError: UseFormSetError<TFieldValues>,
+  setGlobalError?: (message: string) => void,
+) {
+  if (
+    errorResponse.code === ERROR_CODES.VALIDATION_ERROR &&
+    errorResponse.errors
+  ) {
+    errorResponse.errors.forEach((err) => {
+      setError(err.field as Path<TFieldValues>, {
+        type: 'server',
+        message: err.message,
+      });
+    });
+  } else if (setGlobalError) {
+    setGlobalError(errorResponse.message);
+  }
 }

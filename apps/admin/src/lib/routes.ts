@@ -103,3 +103,14 @@ export function getBreadcrumbs(pathname: string): Array<{
 
   return breadcrumbs;
 }
+
+/**
+ * Format a route path with parameters.
+ */
+export function generatePath(path: string, params: Record<string, string>) {
+  let result = path;
+  for (const [key, value] of Object.entries(params)) {
+    result = result.replace(`:${key}`, value);
+  }
+  return result;
+}

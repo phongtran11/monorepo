@@ -5,6 +5,8 @@ export const categorySchema = z.object({
   displayOrder: z.coerce.number().int().min(0).optional(),
   parentId: z.string().nullable().optional(),
   imageId: z.string().nullable().optional(),
+  imageToAdd: z.string().optional(),
+  imageToRemove: z.string().optional(),
 });
 
 export type CategorySchema = z.infer<typeof categorySchema>;

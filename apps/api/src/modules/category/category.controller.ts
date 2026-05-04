@@ -115,7 +115,8 @@ export class CategoryController {
       name: dto.name,
       displayOrder: dto.displayOrder,
       parentId: dto.parentId,
-      imageId: dto.imageId,
+      imageToAdd: dto.imageToAdd,
+      imageToRemove: dto.imageToRemove,
     };
     const category = await this.categoryService.update(id, command, user.id);
     return ApiResponseDto.success(category);

@@ -1,4 +1,5 @@
 import { JWT_CONFIG_TOKEN, JwtConfig } from '@api/config';
+import { ERROR_CODES } from '@lam-thinh-ecommerce/shared';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
@@ -38,7 +39,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
   validate(req: Request, payload: RefreshTokenPayload): RefreshAuthUser {
     const refreshToken = req.get('Authorization')?.replace('Bearer', '').trim();
     if (!refreshToken) {
-      throw new UnauthorizedException('Token làm mới không đúng định dạng');
+      throw new UnauthorizedException(ERROR_CODES.INVALID_REFRESH_TOKEN_FORMAT);
     }
 
     return {

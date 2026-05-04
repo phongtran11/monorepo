@@ -1,10 +1,12 @@
 import { CloudinaryService } from '@api/lib/cloudinary/cloudinary.service';
+import { ERROR_CODES } from '@lam-thinh-ecommerce/shared';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 
 import { IMAGE_STATUS, ImageResourceType } from '../constants';
 import { Image } from '../entities';
 import { ImageRepository } from '../repositories';
-import { ImageResult } from '../types';
+import { ImageResult, MarkPermanentInDbResult } from '../types';
 
 /**
  * Service for managing the shared images table.
@@ -69,30 +71,107 @@ export class ImageService {
     resourceId: string,
     userId: string,
   ): Promise<ImageResult[]> {
+    const result = await this.markPermanentInDb(
+      imageIds,
+      resourceType,
+      resourceId,
+      userId,
+    );
+
+    await this.deleteFromCloudinary(result.deleted);
+
+    return result.saved;
+  }
+
+  /**
+   * Links images to a resource using only database operations.
+   */
+  async markPermanentInDb(
+    imageIds: string[],
+    resourceType: ImageResourceType,
+    resourceId: string,
+    userId: string,
+  ): Promise<MarkPermanentInDbResult> {
     const images = await this.imageRepository.findByIds(imageIds);
-
-    for (const imageId of imageIds) {
-      const image = images.find((img) => img.id === imageId);
-      if (!image) {
-        throw new BadRequestException(`Ảnh không tồn tại: ${imageId}`);
-      }
-      if (image.userId !== userId) {
-        throw new BadRequestException('Bạn không có quyền sử dụng ảnh này');
-      }
-    }
-
     const oldImages = await this.imageRepository.findPermanentForResource(
       resourceType,
       resourceId,
     );
 
+    return this.replacePermanentImagesInDb(
+      imageIds,
+      resourceType,
+      resourceId,
+      userId,
+      images,
+      oldImages,
+      (imagesToDelete) => this.imageRepository.remove(imagesToDelete),
+      (imagesToSave) => this.imageRepository.save(imagesToSave),
+    );
+  }
+
+  /**
+   * Links images to a resource using only database operations inside a transaction.
+   */
+  async markPermanentInDbInTransaction(
+    imageIds: string[],
+    resourceType: ImageResourceType,
+    resourceId: string,
+    userId: string,
+    manager: EntityManager,
+  ): Promise<MarkPermanentInDbResult> {
+    const images = await this.imageRepository.findByIdsInTransaction(
+      imageIds,
+      manager,
+    );
+    const oldImages =
+      await this.imageRepository.findPermanentForResourceInTransaction(
+        resourceType,
+        resourceId,
+        manager,
+      );
+
+    return this.replacePermanentImagesInDb(
+      imageIds,
+      resourceType,
+      resourceId,
+      userId,
+      images,
+      oldImages,
+      (imagesToDelete) =>
+        this.imageRepository.removeInTransaction(imagesToDelete, manager),
+      (imagesToSave) =>
+        this.imageRepository.saveInTransaction(imagesToSave, manager),
+    );
+  }
+
+  /**
+   * Applies image ownership validation and replacement rules.
+   */
+  private async replacePermanentImagesInDb(
+    imageIds: string[],
+    resourceType: ImageResourceType,
+    resourceId: string,
+    userId: string,
+    images: Image[],
+    oldImages: Image[],
+    removeImages: (images: Image[]) => Promise<Image[]>,
+    saveImages: (images: Image[]) => Promise<Image[]>,
+  ): Promise<MarkPermanentInDbResult> {
+    for (const imageId of imageIds) {
+      const image = images.find((img) => img.id === imageId);
+      if (!image) {
+        throw new BadRequestException(ERROR_CODES.IMAGE_NOT_FOUND);
+      }
+      if (image.userId !== userId) {
+        throw new BadRequestException(ERROR_CODES.UNAUTHORIZED_IMAGE_ACCESS);
+      }
+    }
+
     const newIdSet = new Set(imageIds);
     const toDelete = oldImages.filter((img) => !newIdSet.has(img.id));
     if (toDelete.length > 0) {
-      await this.imageRepository.remove(toDelete);
-      await Promise.all(
-        toDelete.map((img) => this.cloudinaryService.deleteAsset(img.publicId)),
-      );
+      await removeImages(toDelete);
     }
 
     const ordered = imageIds.map((id) => images.find((img) => img.id === id)!);
@@ -103,8 +182,12 @@ export class ImageService {
       ordered[i].sortOrder = i;
     }
 
-    const saved = await this.imageRepository.save(ordered);
-    return saved.map((img) => this.toResult(img));
+    const saved = await saveImages(ordered);
+
+    return {
+      saved: saved.map((img) => this.toResult(img)),
+      deleted: toDelete.map((img) => this.toResult(img)),
+    };
   }
 
   /**
@@ -115,17 +198,65 @@ export class ImageService {
     resourceType: ImageResourceType,
     resourceId: string,
   ): Promise<void> {
+    const images = await this.deleteForResourceInDb(resourceType, resourceId);
+
+    await this.deleteFromCloudinary(images);
+  }
+
+  /**
+   * Deletes resource image records using only database operations.
+   * Returns the deleted image data so Cloudinary cleanup can run after commit.
+   */
+  async deleteForResourceInDb(
+    resourceType: ImageResourceType,
+    resourceId: string,
+  ): Promise<ImageResult[]> {
     const images = await this.imageRepository.findAllForResource(
       resourceType,
       resourceId,
     );
 
-    if (images.length > 0) {
-      await this.imageRepository.remove(images);
-      await Promise.all(
-        images.map((img) => this.cloudinaryService.deleteAsset(img.publicId)),
-      );
+    if (images.length === 0) {
+      return [];
     }
+
+    await this.imageRepository.remove(images);
+
+    return images.map((img) => this.toResult(img));
+  }
+
+  /**
+   * Deletes resource image records using only database operations inside a transaction.
+   */
+  async deleteForResourceInDbInTransaction(
+    resourceType: ImageResourceType,
+    resourceId: string,
+    manager: EntityManager,
+  ): Promise<ImageResult[]> {
+    const images = await this.imageRepository.findAllForResourceInTransaction(
+      resourceType,
+      resourceId,
+      manager,
+    );
+
+    if (images.length === 0) {
+      return [];
+    }
+
+    await this.imageRepository.removeInTransaction(images, manager);
+
+    return images.map((img) => this.toResult(img));
+  }
+
+  /**
+   * Deletes image assets from Cloudinary.
+   */
+  async deleteFromCloudinary(images: ImageResult[]): Promise<void> {
+    if (images.length === 0) return;
+
+    await Promise.all(
+      images.map((img) => this.cloudinaryService.deleteAsset(img.publicId)),
+    );
   }
 
   /**

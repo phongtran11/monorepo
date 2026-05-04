@@ -10,9 +10,9 @@ import { uploadToCloudinary } from '../utils/cloudinary-upload';
 
 interface ImageUploadFieldProps {
   /** The current imageId value from the form (empty string = no staged upload). */
-  value: string;
+  value: string | null;
   /** Called with the new imageId after a successful upload, or '' when removed. */
-  onChange: (imageId: string) => void;
+  onChange: (imageId: string | null) => void;
   /** Existing image URL from the server (shown when no upload is staged). */
   currentImageUrl?: string | null;
   disabled?: boolean;
@@ -106,7 +106,7 @@ export function ImageUploadField({
 
   const handleRemove = () => {
     setStaged(null);
-    onChange('');
+    onChange(null);
   };
 
   return (

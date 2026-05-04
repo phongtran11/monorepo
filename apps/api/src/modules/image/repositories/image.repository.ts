@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, In, LessThan, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, LessThan, Repository } from 'typeorm';
 
 import { IMAGE_STATUS, ImageResourceType } from '../constants';
 import { Image } from '../entities';
@@ -17,7 +17,17 @@ export class ImageRepository extends Repository<Image> {
    * Finds images by their IDs.
    */
   findByIds(ids: string[]): Promise<Image[]> {
-    return this.find({ where: ids.map((id) => ({ id })) });
+    return this.find({ where: { id: In(ids) } });
+  }
+
+  /**
+   * Finds images by their IDs within a transaction.
+   */
+  findByIdsInTransaction(
+    ids: string[],
+    manager: EntityManager,
+  ): Promise<Image[]> {
+    return manager.getRepository(Image).find({ where: { id: In(ids) } });
   }
 
   /**
@@ -28,6 +38,20 @@ export class ImageRepository extends Repository<Image> {
     resourceId: string,
   ): Promise<Image[]> {
     return this.find({
+      where: { resourceType, resourceId, status: IMAGE_STATUS.PERMANENT },
+      order: { sortOrder: 'ASC' },
+    });
+  }
+
+  /**
+   * Finds all permanent images linked to a resource within a transaction.
+   */
+  findPermanentForResourceInTransaction(
+    resourceType: ImageResourceType,
+    resourceId: string,
+    manager: EntityManager,
+  ): Promise<Image[]> {
+    return manager.getRepository(Image).find({
       where: { resourceType, resourceId, status: IMAGE_STATUS.PERMANENT },
       order: { sortOrder: 'ASC' },
     });
@@ -59,6 +83,36 @@ export class ImageRepository extends Repository<Image> {
     resourceId: string,
   ): Promise<Image[]> {
     return this.find({ where: { resourceType, resourceId } });
+  }
+
+  /**
+   * Finds all images linked to a resource within a transaction.
+   */
+  findAllForResourceInTransaction(
+    resourceType: ImageResourceType,
+    resourceId: string,
+    manager: EntityManager,
+  ): Promise<Image[]> {
+    return manager.getRepository(Image).find({
+      where: { resourceType, resourceId },
+    });
+  }
+
+  /**
+   * Removes images within a transaction.
+   */
+  removeInTransaction(
+    images: Image[],
+    manager: EntityManager,
+  ): Promise<Image[]> {
+    return manager.getRepository(Image).remove(images);
+  }
+
+  /**
+   * Saves images within a transaction.
+   */
+  saveInTransaction(images: Image[], manager: EntityManager): Promise<Image[]> {
+    return manager.getRepository(Image).save(images);
   }
 
   /**

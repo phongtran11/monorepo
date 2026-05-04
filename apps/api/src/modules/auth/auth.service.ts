@@ -1,7 +1,7 @@
 import { Env } from '@api/config';
 import { User } from '@api/modules/user/user.entity';
 import { UserPort } from '@api/modules/user/user.port';
-import { AccountStatus } from '@lam-thinh-ecommerce/shared';
+import { AccountStatus, ERROR_CODES } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
   Injectable,
@@ -50,7 +50,7 @@ export class AuthService {
     const existing = await this.userService.findByEmailWithDeleted(dto.email);
 
     if (existing) {
-      throw new ConflictException('Email đã tồn tại');
+      throw new ConflictException(ERROR_CODES.EMAIL_ALREADY_EXISTS);
     }
 
     const hashedPassword = await argon2.hash(dto.password, {
@@ -70,11 +70,11 @@ export class AuthService {
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException('Tài khoản không tồn tại');
+      throw new UnauthorizedException(ERROR_CODES.ACCOUNT_NOT_FOUND);
     }
 
     if (user.status === AccountStatus.BANNED) {
-      throw new UnauthorizedException('Tài khoản của bạn đã bị khoá');
+      throw new UnauthorizedException(ERROR_CODES.ACCOUNT_LOCKED);
     }
 
     const isPasswordValid = await argon2.verify(user.password, dto.password, {
@@ -84,7 +84,7 @@ export class AuthService {
     });
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+      throw new UnauthorizedException(ERROR_CODES.INVALID_CREDENTIALS);
     }
 
     return this.issueRootSession(user, ip, userAgent);
@@ -213,11 +213,11 @@ export class AuthService {
         this.logger.warn(
           `Refresh attempted on revoked session ${jti} for user ${userId}`,
         );
-        throw new UnauthorizedException('Phiên đăng nhập đã bị thu hồi');
+        throw new UnauthorizedException(ERROR_CODES.SESSION_REVOKED);
       }
 
       if (new Date() > session.expiresAt) {
-        throw new UnauthorizedException('Phiên đăng nhập đã hết hạn');
+        throw new UnauthorizedException(ERROR_CODES.SESSION_EXPIRED);
       }
 
       const isTokenValid = await argon2.verify(session.refreshToken, rawToken, {
@@ -226,7 +226,7 @@ export class AuthService {
         ),
       });
       if (!isTokenValid) {
-        throw new UnauthorizedException('Token không hợp lệ');
+        throw new UnauthorizedException(ERROR_CODES.INVALID_TOKEN);
       }
 
       if (session.rotatedAt) {
@@ -236,7 +236,9 @@ export class AuthService {
       const user = await this.userService.findById(userId);
       if (!user || user.status === AccountStatus.BANNED) {
         await this.revokeChain(manager, session.chainId);
-        throw new UnauthorizedException('Tài khoản không tồn tại hoặc bị khoá');
+        throw new UnauthorizedException(
+          ERROR_CODES.ACCOUNT_NOT_FOUND_OR_LOCKED,
+        );
       }
 
       return this.rotateSession(manager, session, user, ip, userAgent);

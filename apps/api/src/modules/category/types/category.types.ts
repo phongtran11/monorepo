@@ -41,7 +41,8 @@ export interface UpdateCategoryCommand {
   name?: string;
   displayOrder?: number;
   parentId?: string | null;
-  imageId?: string | null;
+  imageToAdd?: string;
+  imageToRemove?: string;
 }
 
 /**

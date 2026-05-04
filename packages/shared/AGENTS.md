@@ -113,13 +113,3 @@ Converts text to a URL-safe slug. Handles Vietnamese characters (đ, diacritics)
 ### `formatCurrency(amount, currency?, locale?)` / `formatVND(amount)` (`src/helpers/number.helper.ts`)
 
 Formats numbers as localized currency strings. Defaults to VND / vi-VN.
-
-### `toNullableField<T>(value)` (`src/helpers/nullable.helper.ts`)
-
-Normalises form values for PATCH payloads with three-state semantics:
-
-- `undefined` → field absent (backend skips the field)
-- `null` → field cleared (backend sets to null)
-- `T` → new value (backend updates)
-
-Use this instead of `|| null` to avoid collapsing `undefined` into `null`.

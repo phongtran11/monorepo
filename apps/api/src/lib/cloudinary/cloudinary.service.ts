@@ -1,4 +1,5 @@
 import { CLOUDINARY_CONFIG_TOKEN, CloudinaryConfig } from '@api/config';
+import { ERROR_CODES } from '@lam-thinh-ecommerce/shared';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
@@ -59,17 +60,13 @@ export class CloudinaryService {
    */
   async verifyAsset(publicId: string): Promise<void> {
     if (!publicId.startsWith(this.uploadFolder + '/')) {
-      throw new BadRequestException(
-        `Asset phải nằm trong thư mục ${this.uploadFolder}`,
-      );
+      throw new BadRequestException(ERROR_CODES.INVALID_IMAGE_FILE);
     }
 
     try {
       await cloudinary.api.resource(publicId);
     } catch {
-      throw new BadRequestException(
-        'Asset không tồn tại trên Cloudinary hoặc đã bị xóa',
-      );
+      throw new BadRequestException(ERROR_CODES.IMAGE_NOT_FOUND);
     }
   }
 

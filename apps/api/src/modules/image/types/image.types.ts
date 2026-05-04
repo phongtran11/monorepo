@@ -8,3 +8,11 @@ export interface ImageResult {
   sortOrder: number;
   resourceId: string | null;
 }
+
+/**
+ * Result returned by database-only image replacement operations.
+ */
+export interface MarkPermanentInDbResult {
+  saved: ImageResult[];
+  deleted: ImageResult[];
+}

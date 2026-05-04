@@ -12,6 +12,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { RichTextEditor } from '@admin/components/ui/rich-text-editor';
+import { handleApiFormError } from '@admin/lib/utils';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
 import { MultiImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -50,16 +51,15 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
     {},
   );
 
-  const { control, handleSubmit, setValue, formState } = useForm<ProductSchema>(
-    {
+  const { control, handleSubmit, setValue, setError, formState } =
+    useForm<ProductSchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(productSchema),
       defaultValues: {
         ...product,
         imageIds: product.images.map((img) => img.id),
       },
-    },
-  );
+    });
 
   const isBusy = isPending || isUploading || formState.isSubmitting;
 
@@ -68,7 +68,7 @@ export function EditProductPage({ product, categories }: EditProductPageProps) {
     startTransition(async () => {
       const result = await updateProductAction(product.id, data);
       if (!result.success) {
-        setErrorMessage(result.message);
+        handleApiFormError(result, setError, setErrorMessage);
         return;
       }
       setValue('imageIds', []);

@@ -1,7 +1,7 @@
 import { IMAGE_RESOURCE_TYPE } from '@api/modules/image/constants';
 import { ImageService } from '@api/modules/image/services/image.service';
 import { ImageResult } from '@api/modules/image/types';
-import { slugify } from '@lam-thinh-ecommerce/shared';
+import { ERROR_CODES, slugify } from '@lam-thinh-ecommerce/shared';
 import {
   ConflictException,
   Injectable,
@@ -82,7 +82,7 @@ export class ProductService implements ProductPort {
     const product = await this.productRepository.findById(id);
 
     if (!product) {
-      throw new NotFoundException('Sản phẩm không tồn tại');
+      throw new NotFoundException(ERROR_CODES.PRODUCT_NOT_FOUND);
     }
 
     const images = await this.imageService.findForResource('product', id);
@@ -120,7 +120,7 @@ export class ProductService implements ProductPort {
       });
     } catch (error) {
       if (error instanceof QueryFailedError && error.name === '23503') {
-        throw new NotFoundException('Danh mục không tồn tại');
+        throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
       }
       throw error;
     }
@@ -162,7 +162,7 @@ export class ProductService implements ProductPort {
         const existing = await productRepo.findOne({ where: { id } });
 
         if (!existing) {
-          throw new NotFoundException('Sản phẩm không tồn tại');
+          throw new NotFoundException(ERROR_CODES.PRODUCT_NOT_FOUND);
         }
 
         if (dto.name && dto.name !== existing.name) {
@@ -172,7 +172,7 @@ export class ProductService implements ProductPort {
             withDeleted: true,
           });
           if (slugConflict && slugConflict.id !== id) {
-            throw new ConflictException('Slug sản phẩm đã tồn tại');
+            throw new ConflictException(ERROR_CODES.PRODUCT_SLUG_EXISTS);
           }
           existing.name = dto.name;
           existing.slug = newSlug;
@@ -184,7 +184,7 @@ export class ProductService implements ProductPort {
             withDeleted: true,
           });
           if (skuConflict && skuConflict.id !== id) {
-            throw new ConflictException('SKU sản phẩm đã tồn tại');
+            throw new ConflictException(ERROR_CODES.PRODUCT_SKU_EXISTS);
           }
           existing.sku = dto.sku;
         }
@@ -207,7 +207,7 @@ export class ProductService implements ProductPort {
       });
     } catch (error) {
       if (error instanceof QueryFailedError && error.message === '23503') {
-        throw new NotFoundException('Danh mục không tồn tại');
+        throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
       }
       throw error;
     }
@@ -248,7 +248,7 @@ export class ProductService implements ProductPort {
     const product = await this.productRepository.findById(id);
 
     if (!product) {
-      throw new NotFoundException('Sản phẩm không tồn tại');
+      throw new NotFoundException(ERROR_CODES.PRODUCT_NOT_FOUND);
     }
 
     await this.imageService.deleteForResource('product', id);
@@ -291,14 +291,14 @@ export class ProductService implements ProductPort {
   private async assertSlugAvailable(slug: string): Promise<void> {
     const existing = await this.productRepository.findBySlug(slug);
     if (existing) {
-      throw new ConflictException('Slug sản phẩm đã tồn tại');
+      throw new ConflictException(ERROR_CODES.PRODUCT_SLUG_EXISTS);
     }
   }
 
   private async assertSkuAvailable(sku: string): Promise<void> {
     const existing = await this.productRepository.findBySku(sku);
     if (existing) {
-      throw new ConflictException('SKU sản phẩm đã tồn tại');
+      throw new ConflictException(ERROR_CODES.PRODUCT_SKU_EXISTS);
     }
   }
 

@@ -3,7 +3,7 @@ import { IMAGE_RESOURCE_TYPE } from '@api/modules/image/constants';
 import { ImageService } from '@api/modules/image/services';
 import { ImageResult } from '@api/modules/image/types';
 import { ProductPort } from '@api/modules/product/ports/product.port';
-import { slugify } from '@lam-thinh-ecommerce/shared';
+import { ERROR_CODES, slugify } from '@lam-thinh-ecommerce/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -58,7 +58,7 @@ export class CategoryService implements CategoryPort {
     const category = await this.categoryRepository.findById(id);
 
     if (!category) {
-      throw new NotFoundException('Danh mục không tồn tại');
+      throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
     }
 
     const images = await this.imageService.findForResource('category', id);
@@ -82,7 +82,7 @@ export class CategoryService implements CategoryPort {
     const existingSlug = await this.categoryRepository.findBySlug(slug);
 
     if (existingSlug && !existingSlug.deletedAt) {
-      throw new ConflictException('Slug danh mục đã tồn tại');
+      throw new ConflictException(ERROR_CODES.CATEGORY_SLUG_EXISTS);
     }
 
     // Resolve the category ID before the transaction so markPermanent can run first.
@@ -111,7 +111,7 @@ export class CategoryService implements CategoryPort {
           });
 
           if (!parent) {
-            throw new NotFoundException('Danh mục cha không tồn tại');
+            throw new NotFoundException(ERROR_CODES.PARENT_CATEGORY_NOT_FOUND);
           }
         }
 
@@ -124,7 +124,7 @@ export class CategoryService implements CategoryPort {
           });
 
           if (!toRestore) {
-            throw new NotFoundException('Danh mục không tồn tại');
+            throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
           }
 
           toRestore.name = command.name;
@@ -169,27 +169,29 @@ export class CategoryService implements CategoryPort {
     command: UpdateCategoryCommand,
     userId: string,
   ): Promise<CategoryResult> {
-    await this.dataSource.transaction(async (manager) => {
-      const categoryRepo = manager.getRepository(Category);
+    let deletedImages: ImageResult[] = [];
 
-      const category = await categoryRepo.findOne({
-        where: { id },
-        relations: ['parent'],
-      });
+    await this.dataSource.transaction(async (manager) => {
+      const category =
+        await this.categoryRepository.findByIdForUpdateInTransaction(
+          id,
+          manager,
+        );
 
       if (!category) {
-        throw new NotFoundException('Danh mục không tồn tại');
+        throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
       }
 
       if (command.name && command.name !== category.name) {
         const slug = slugify(command.name);
-        const existing = await categoryRepo.findOne({
-          where: { slug },
-          withDeleted: true,
-        });
+        const existing =
+          await this.categoryRepository.findBySlugForUpdateInTransaction(
+            slug,
+            manager,
+          );
 
         if (existing && existing.id !== id) {
-          throw new ConflictException('Slug danh mục đã tồn tại');
+          throw new ConflictException(ERROR_CODES.CATEGORY_SLUG_EXISTS);
         }
         category.name = command.name;
         category.slug = slug;
@@ -205,24 +207,28 @@ export class CategoryService implements CategoryPort {
         } else {
           if (command.parentId === id) {
             throw new BadRequestException(
-              'Danh mục không thể là cha của chính nó',
+              ERROR_CODES.CANNOT_MAKE_CATEGORY_ITS_OWN_PARENT,
             );
           }
 
-          const parent = await categoryRepo.findOne({
-            where: { id: command.parentId },
-          });
+          const parent = await this.categoryRepository.findByIdInTransaction(
+            command.parentId,
+            manager,
+          );
 
           if (!parent) {
-            throw new NotFoundException('Danh mục cha không tồn tại');
+            throw new NotFoundException(ERROR_CODES.PARENT_CATEGORY_NOT_FOUND);
           }
 
           const descendants =
-            await this.categoryRepository.findDescendants(category);
+            await this.categoryRepository.findDescendantsInTransaction(
+              category,
+              manager,
+            );
 
           if (descendants.some((d) => d.id === command.parentId)) {
             throw new BadRequestException(
-              'Danh mục cha không thể là con của danh mục hiện tại',
+              ERROR_CODES.CANNOT_SET_CHILD_AS_PARENT,
             );
           }
 
@@ -230,24 +236,28 @@ export class CategoryService implements CategoryPort {
         }
       }
 
-      await categoryRepo.save(category);
-    });
+      await this.categoryRepository.saveInTransaction(category, manager);
 
-    if (command.imageId !== undefined) {
-      if (command.imageId) {
-        await this.imageService.markPermanent(
-          [command.imageId],
+      if (command.imageToAdd) {
+        const result = await this.imageService.markPermanentInDbInTransaction(
+          [command.imageToAdd],
           IMAGE_RESOURCE_TYPE.CATEGORY,
           id,
           userId,
+          manager,
         );
-      } else {
-        await this.imageService.deleteForResource(
-          IMAGE_RESOURCE_TYPE.CATEGORY,
-          id,
-        );
+        deletedImages = result.deleted;
+      } else if (command.imageToRemove) {
+        deletedImages =
+          await this.imageService.deleteForResourceInDbInTransaction(
+            IMAGE_RESOURCE_TYPE.CATEGORY,
+            id,
+            manager,
+          );
       }
-    }
+    });
+
+    await this.imageService.deleteFromCloudinary(deletedImages);
 
     return this.findOne(id);
   }
@@ -270,23 +280,19 @@ export class CategoryService implements CategoryPort {
     const categories = await this.categoryRepository.findByIds(ids);
 
     if (categories.length !== ids.length) {
-      const foundIds = new Set(categories.map((c) => c.id));
-      const missing = ids.find((id) => !foundIds.has(id));
-      throw new NotFoundException(`Danh mục không tồn tại: ${missing}`);
+      throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
     }
 
     const withChildren = categories.find(
       (c) => c.children && c.children.length > 0,
     );
     if (withChildren) {
-      throw new ConflictException(
-        `Không thể xóa danh mục có chứa danh mục con: ${withChildren.name}`,
-      );
+      throw new ConflictException(ERROR_CODES.CATEGORY_HAS_CHILDREN);
     }
 
     const hasProducts = await this.productPort.hasProductsInCategories(ids);
     if (hasProducts) {
-      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+      throw new ConflictException(ERROR_CODES.CATEGORY_HAS_PRODUCTS);
     }
 
     for (const category of categories) {
@@ -306,18 +312,16 @@ export class CategoryService implements CategoryPort {
     const category = await this.categoryRepository.findById(id);
 
     if (!category) {
-      throw new NotFoundException('Danh mục không tồn tại');
+      throw new NotFoundException(ERROR_CODES.CATEGORY_NOT_FOUND);
     }
 
     if (category.children && category.children.length > 0) {
-      throw new ConflictException(
-        'Không thể xóa danh mục có chứa danh mục con',
-      );
+      throw new ConflictException(ERROR_CODES.CATEGORY_HAS_CHILDREN);
     }
 
     const hasProducts = await this.productPort.hasProductsInCategories([id]);
     if (hasProducts) {
-      throw new ConflictException('Không thể xóa danh mục đang có sản phẩm');
+      throw new ConflictException(ERROR_CODES.CATEGORY_HAS_PRODUCTS);
     }
 
     await this.imageService.deleteForResource(IMAGE_RESOURCE_TYPE.CATEGORY, id);

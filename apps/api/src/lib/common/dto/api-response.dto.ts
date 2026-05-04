@@ -73,26 +73,4 @@ export class ApiResponseDto<T> {
     res.error = null;
     return res;
   }
-
-  /**
-   * Creates an error API response.
-   *
-   * @param message The error message.
-   * @param statusCode Optional HTTP status code (defaults to 400).
-   * @param error Optional detailed error message.
-   * @returns An ApiResponseDto instance representing an error.
-   */
-  static error(
-    message: string,
-    statusCode = 400,
-    error?: string,
-  ): ApiResponseDto<null> {
-    const res = new ApiResponseDto<null>();
-    res.success = false;
-    res.statusCode = statusCode;
-    res.message = message;
-    res.data = null;
-    res.error = error ?? null;
-    return res;
-  }
 }

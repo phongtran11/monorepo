@@ -13,8 +13,10 @@ import {
 } from '@admin/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
+import { handleApiFormError } from '@admin/lib/utils';
 import { ImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { getDirtyFields } from '@lam-thinh-ecommerce/shared';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -42,7 +44,7 @@ export function CategoryDialog({
   const [isUploading, setIsUploading] = useState(false);
   const prevOpenRef = useRef(false);
 
-  const { control, handleSubmit, reset, setValue, formState } =
+  const { control, handleSubmit, reset, setValue, setError, formState } =
     useForm<CategorySchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(categorySchema),
@@ -62,8 +64,8 @@ export function CategoryDialog({
       reset({
         name: editCategory?.name ?? '',
         displayOrder: editCategory?.displayOrder ?? 0,
-        parentId: editCategory?.parentId ?? '',
-        imageId: '',
+        parentId: editCategory?.parentId ?? null,
+        imageId: null,
       });
     }
     prevOpenRef.current = open;
@@ -79,18 +81,25 @@ export function CategoryDialog({
   const onSubmit = (data: CategorySchema) => {
     setErrorMessage(null);
     startTransition(async () => {
-      const result = isEdit
-        ? await updateCategoryAction(editCategory!.id, data)
-        : await createCategoryAction(data);
+      let result;
+
+      if (isEdit) {
+        result = await updateCategoryAction(
+          editCategory!.id,
+          getDirtyFields(data, formState.dirtyFields),
+        );
+      } else {
+        result = await createCategoryAction(data);
+      }
 
       if (!result.success) {
-        setErrorMessage(result.message);
+        handleApiFormError(result, setError, setErrorMessage);
         return;
       }
 
       // Clear imageId before closing so handleOpenChange skips the cancel —
       // the tempId was already consumed by the API.
-      setValue('imageId', '');
+      setValue('imageId', null);
       handleOpenChange(false);
     });
   };

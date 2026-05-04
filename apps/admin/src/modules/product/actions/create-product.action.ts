@@ -3,21 +3,14 @@
 import { withRevalidate } from '@admin/lib/action-utils';
 import { apis } from '@admin/lib/api';
 import { API_ENDPOINTS } from '@admin/lib/constants';
-import { toNullableField } from '@lam-thinh-ecommerce/shared';
 
 import { ProductSchema } from '../schemas/product.schema';
 import { Product } from '../types/product.type';
 
 export async function createProductAction(data: ProductSchema) {
   return withRevalidate('products', () =>
-    apis.post<Product, ProductSchema>(API_ENDPOINTS.PRODUCTS.BASE, {
-      data: {
-        ...data,
-        compareAtPrice: toNullableField(data.compareAtPrice),
-        shortDescription: toNullableField(data.shortDescription),
-        description: toNullableField(data.description),
-        imageIds: toNullableField(data.imageIds),
-      },
+    apis.post<Product, ProductSchema>(API_ENDPOINTS.PRODUCTS.CREATE, {
+      data,
     }),
   );
 }

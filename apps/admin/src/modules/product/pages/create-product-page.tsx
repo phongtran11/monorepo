@@ -12,6 +12,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@admin/components/ui/field';
 import { Input } from '@admin/components/ui/input';
 import { RichTextEditor } from '@admin/components/ui/rich-text-editor';
+import { handleApiFormError } from '@admin/lib/utils';
 import { FlatCategory } from '@admin/modules/category/types/category.type';
 import { MultiImageUploadField } from '@admin/modules/upload';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,8 +43,8 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
 
-  const { control, handleSubmit, setValue, formState } = useForm<ProductSchema>(
-    {
+  const { control, handleSubmit, setValue, setError, formState } =
+    useForm<ProductSchema>({
       // @ts-expect-error zodResolver generic mismatch with current zod version
       resolver: zodResolver(productSchema),
       defaultValues: {
@@ -58,8 +59,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
         description: '',
         imageIds: [],
       },
-    },
-  );
+    });
 
   const isBusy = isPending || isUploading || formState.isSubmitting;
 
@@ -68,7 +68,7 @@ export function CreateProductPage({ categories }: CreateProductPageProps) {
     startTransition(async () => {
       const result = await createProductAction(data);
       if (!result.success) {
-        setErrorMessage(result.message);
+        handleApiFormError(result, setError, setErrorMessage);
         return;
       }
       // Uploaded image was consumed by the API — no need to cancel
